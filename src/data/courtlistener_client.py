@@ -287,19 +287,36 @@ class CourtListenerClient:
         # Get opinions
         opinions = await self.get_opinions_for_cluster(cluster_id)
 
-        # Extract court info from docket
+        # Extract court info - handle nested objects or URLs
         docket = cluster.get("docket") or {}
-        court = docket.get("court") or {}
+        court_id = "scotus"
+        court_name = "Supreme Court of the United States"
+        docket_number = None
+
+        if isinstance(docket, dict):
+            court = docket.get("court") or {}
+            if isinstance(court, dict):
+                court_id = court.get("id", "scotus")
+                court_name = court.get("full_name", "Supreme Court of the United States")
+            docket_number = docket.get("docket_number")
+
+        # Extract citations
+        citations = []
+        for c in cluster.get("citations", []):
+            if isinstance(c, dict) and c.get("cite"):
+                citations.append(c.get("cite"))
+            elif isinstance(c, str):
+                citations.append(c)
 
         case = CourtListenerCase(
             cluster_id=cluster_id,
             case_name=cluster.get("case_name", "Unknown"),
             date_filed=cluster.get("date_filed"),
-            court_id=court.get("id", "unknown") if isinstance(court, dict) else str(court),
-            court_name=court.get("full_name", "Unknown Court") if isinstance(court, dict) else "Unknown Court",
+            court_id=court_id,
+            court_name=court_name,
             opinions=opinions,
-            docket_number=docket.get("docket_number") if isinstance(docket, dict) else None,
-            citations=[c.get("cite") for c in cluster.get("citations", []) if c.get("cite")]
+            docket_number=docket_number,
+            citations=citations
         )
 
         if save_to_disk:
@@ -359,8 +376,18 @@ class CourtListenerClient:
                     break
 
                 cluster_id = opinion.get("cluster")
+
+                # Handle different formats: int, dict with id, or URL string
                 if isinstance(cluster_id, dict):
                     cluster_id = cluster_id.get("id")
+                elif isinstance(cluster_id, str):
+                    # Extract ID from URL like "https://.../clusters/12345/"
+                    if "/clusters/" in cluster_id:
+                        cluster_id = cluster_id.rstrip("/").split("/")[-1]
+                    try:
+                        cluster_id = int(cluster_id)
+                    except (ValueError, TypeError):
+                        continue
 
                 if cluster_id and cluster_id not in cluster_ids_seen:
                     cluster_ids_seen.add(cluster_id)
