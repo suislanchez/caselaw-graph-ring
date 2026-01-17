@@ -26,9 +26,13 @@ NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "legalgpt123")
 
-# Caselaw Access Project (CAP) API configuration
+# Caselaw Access Project (CAP) API configuration (DEPRECATED - use CourtListener)
 CAP_API_BASE = "https://api.case.law/v1"
 CAP_API_KEY = os.environ.get("CAP_API_KEY")
+
+# CourtListener API configuration (RECOMMENDED)
+COURTLISTENER_API_BASE = "https://www.courtlistener.com/api/rest/v4"
+COURTLISTENER_API_KEY = os.environ.get("COURTLISTENER_API_KEY")
 
 # Supreme Court Database (SCDB) configuration
 SCDB_URL = "http://scdb.wustl.edu/_brickFiles/2023_01/SCDB_2023_01_caseCentered_Citation.csv.zip"
