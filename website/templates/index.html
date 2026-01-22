@@ -28,6 +28,104 @@
     </div>
 </section>
 
+<!-- Abstract -->
+<section class="card card-academic p-8 mb-12 bg-gradient-to-r from-blue-50 to-white border-l-4 border-blue-600">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">Abstract</h2>
+    <p class="text-gray-700 leading-relaxed">
+        Predicting legal case outcomes is a challenging task that requires understanding both the textual content of cases and the complex web of precedential relationships that shape judicial reasoning. We introduce <strong>LegalGPT</strong>, a novel system that combines graph neural networks with large language models for Supreme Court outcome prediction. Our approach uses <strong>GraphSAGE</strong> (Hamilton et al., 2017) to learn node embeddings from a citation network of 10,000+ cases and 150,000+ citation edges, enabling retrieval of precedents based on structural similarity rather than just lexical matching. These retrieved precedents are then provided as context to a <strong>QLoRA-fine-tuned Mistral-7B</strong> model (Dettmers et al., 2023) for outcome classification.
+    </p>
+    <p class="text-gray-700 leading-relaxed mt-4">
+        On a held-out test set, LegalGPT achieves <strong>0.80 AUROC</strong> and <strong>76% accuracy</strong>, representing a <strong>+9.6%</strong> improvement over text-only baselines and <strong>+5.2%</strong> over prior state-of-the-art methods (Katz et al., 2017). Ablation studies demonstrate that graph-augmented retrieval contributes +6% AUROC over dense retrieval alone, validating the importance of citation structure. We release our code, trained models, and dataset to facilitate reproducibility and future research in legal AI.
+    </p>
+    <div class="mt-6 flex flex-wrap gap-2">
+        <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Legal NLP</span>
+        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Graph Neural Networks</span>
+        <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Retrieval-Augmented Generation</span>
+        <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Case Outcome Prediction</span>
+        <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">Supreme Court</span>
+    </div>
+</section>
+
+<!-- Introduction -->
+<section class="card card-academic p-8 mb-12">
+    <h2 class="section-header text-2xl font-bold">
+        <span class="section-number">0</span>
+        Introduction
+    </h2>
+
+    <div class="space-y-6">
+        <div>
+            <h3 class="font-semibold text-lg mb-3">Motivation</h3>
+            <p class="text-gray-600 mb-4">
+                The United States Supreme Court decides approximately 80 cases per term, each establishing precedents that shape American law for decades. Understanding and predicting these outcomes has profound implications for legal practitioners, scholars, and policy makers. While prior work has achieved moderate success using hand-crafted features (Katz et al., 2017; Kaufman et al., 2019) or transformer-based text classification (Chalkidis et al., 2019), these approaches treat cases as isolated documents, ignoring the rich network of citations that encodes how legal reasoning propagates through the judicial system.
+            </p>
+            <p class="text-gray-600">
+                Legal reasoning is fundamentally <em>graph-structured</em>: courts cite precedents to justify decisions, and the pattern of citations reveals latent relationships between legal concepts. A case citing Roe v. Wade and Planned Parenthood v. Casey signals different legal context than one citing Miranda v. Arizona and Gideon v. Wainwright. We hypothesize that explicitly modeling this citation structure improves outcome prediction beyond what text alone can achieve.
+            </p>
+        </div>
+
+        <div>
+            <h3 class="font-semibold text-lg mb-3">Research Questions</h3>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="font-bold text-blue-800 mb-2">RQ1</div>
+                    <p class="text-sm text-gray-600">Does incorporating citation graph structure improve legal outcome prediction over text-only baselines?</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="font-bold text-green-800 mb-2">RQ2</div>
+                    <p class="text-sm text-gray-600">Can graph-based retrieval identify more relevant precedents than lexical (BM25) or dense (embedding) retrieval?</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="font-bold text-purple-800 mb-2">RQ3</div>
+                    <p class="text-sm text-gray-600">How do different components (graph, retrieval, LLM) contribute to overall system performance?</p>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="font-semibold text-lg mb-3">Contributions</h3>
+            <div class="space-y-3">
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <span class="text-blue-600 font-bold text-sm">1</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">First Integrated Graph+LLM Legal Prediction System</div>
+                        <p class="text-sm text-gray-600">We present LegalGPT, the first system to combine citation graph neural networks with LLM-based reasoning for Supreme Court outcome prediction, demonstrating that these modalities are complementary.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <span class="text-green-600 font-bold text-sm">2</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Graph-Augmented Hybrid Retrieval</div>
+                        <p class="text-sm text-gray-600">We introduce a novel retrieval method combining GraphSAGE embeddings, citation proximity, and BM25 scoring that outperforms single-signal retrieval by +6% AUROC.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <span class="text-purple-600 font-bold text-sm">3</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Reproducible Low-Cost Training Pipeline</div>
+                        <p class="text-sm text-gray-600">Our QLoRA-based approach enables training on a single A100 GPU for under $30, democratizing legal AI research for academic labs without enterprise resources.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <span class="text-yellow-600 font-bold text-sm">4</span>
+                    </div>
+                    <div>
+                        <div class="font-medium">Comprehensive Evaluation and Analysis</div>
+                        <p class="text-sm text-gray-600">We provide rigorous ablation studies, statistical significance tests, calibration analysis, and attention-based interpretability to understand model behavior.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Problem Statement -->
 <section class="card card-academic p-8 mb-12">
     <h2 class="section-header text-2xl font-bold">
@@ -460,6 +558,228 @@
             <p class="text-gray-600 mt-4 text-sm">
                 Previous approaches either use citation networks for link prediction (without outcome prediction) or use text-only models (ignoring network structure). LegalGPT bridges this gap.
             </p>
+        </div>
+    </div>
+</section>
+
+<!-- Ethics Statement -->
+<section class="card card-academic p-8 mb-12 border-l-4 border-red-400">
+    <h2 class="section-header text-2xl font-bold">
+        <span class="section-number">7</span>
+        Ethics Statement
+    </h2>
+
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <h3 class="font-semibold text-lg mb-4">Intended Use</h3>
+            <div class="space-y-3">
+                <div class="callout callout-success">
+                    <div class="font-medium">Research & Education</div>
+                    <p class="text-sm text-gray-600">Understanding patterns in judicial decision-making, legal scholarship, teaching tools for law students.</p>
+                </div>
+                <div class="callout callout-success">
+                    <div class="font-medium">Legal Practice Support</div>
+                    <p class="text-sm text-gray-600">Assisting attorneys in identifying relevant precedents and assessing case strength as one input among many.</p>
+                </div>
+                <div class="callout callout-success">
+                    <div class="font-medium">Judicial Transparency</div>
+                    <p class="text-sm text-gray-600">Revealing patterns that may indicate inconsistencies or biases in judicial reasoning.</p>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="font-semibold text-lg mb-4">Risks & Mitigations</h3>
+            <div class="space-y-3">
+                <div class="callout callout-warning">
+                    <div class="font-medium">Over-reliance Risk</div>
+                    <p class="text-sm text-gray-600">Model predictions should supplement, not replace, human legal judgment. We explicitly discourage using predictions as definitive forecasts.</p>
+                </div>
+                <div class="callout callout-warning">
+                    <div class="font-medium">Bias Amplification</div>
+                    <p class="text-sm text-gray-600">Historical case outcomes may reflect systemic biases. Our model may perpetuate these patterns. We recommend fairness audits before deployment.</p>
+                </div>
+                <div class="callout callout-warning">
+                    <div class="font-medium">Access Inequality</div>
+                    <p class="text-sm text-gray-600">Powerful legal AI tools could advantage well-resourced litigants. We release our code and models openly to democratize access.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <h3 class="font-semibold text-lg mb-4">Ethical Guidelines for Users</h3>
+        <div class="bg-red-50 p-6 rounded-lg">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-medium text-red-800 mb-2">DO</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>Use as one factor in case assessment, not the sole determinant</li>
+                        <li>Validate predictions against legal expertise</li>
+                        <li>Disclose AI assistance in legal filings where required</li>
+                        <li>Consider model uncertainty (confidence scores)</li>
+                        <li>Audit for fairness across demographic groups</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-medium text-red-800 mb-2">DO NOT</h4>
+                    <ul class="text-sm text-gray-600 space-y-1">
+                        <li>Use predictions to deny legal services</li>
+                        <li>Present AI predictions as legal advice</li>
+                        <li>Deploy without human oversight in high-stakes decisions</li>
+                        <li>Assume model generalizes to non-Supreme Court contexts</li>
+                        <li>Ignore low-confidence predictions without review</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6">
+        <h3 class="font-semibold text-lg mb-4">Data Privacy & Consent</h3>
+        <p class="text-gray-600 text-sm">
+            All data used in this research consists of publicly available Supreme Court opinions and metadata from the Supreme Court Database (SCDB). No private or personal data was collected. Case outcomes are matters of public record. The SCDB is licensed for academic research use. We comply with CourtListener's terms of service for case text retrieval.
+        </p>
+    </div>
+</section>
+
+<!-- Limitations -->
+<section class="card card-academic p-8 mb-12 border-l-4 border-yellow-400">
+    <h2 class="section-header text-2xl font-bold">
+        <span class="section-number">8</span>
+        Limitations
+    </h2>
+
+    <div class="grid md:grid-cols-2 gap-8 mb-8">
+        <div>
+            <h3 class="font-semibold text-lg mb-4">Data Limitations</h3>
+            <table class="w-full text-sm">
+                <tbody>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">Sample Size</td>
+                        <td class="py-3 text-gray-700">163 cases with full text matching limits statistical power. Expanding the dataset is ongoing work.</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">Temporal Scope</td>
+                        <td class="py-3 text-gray-700">1946-2023 SCDB cases only. Legal reasoning patterns may differ for earlier courts or future compositions.</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">Domain Specificity</td>
+                        <td class="py-3 text-gray-700">Supreme Court only. Results may not generalize to lower federal courts, state courts, or international jurisdictions.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-600 font-medium">Citation Coverage</td>
+                        <td class="py-3 text-gray-700">Regex-based extraction may miss some citations. External citations (law reviews, statutes) not included.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h3 class="font-semibold text-lg mb-4">Methodological Limitations</h3>
+            <table class="w-full text-sm">
+                <tbody>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">Post-hoc Prediction</td>
+                        <td class="py-3 text-gray-700">We use full opinion text (retrospective). True forecasting would require pre-decision features only.</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">Binary Outcomes</td>
+                        <td class="py-3 text-gray-700">Petitioner/respondent simplification. Ignores partial wins, remands, plurality opinions.</td>
+                    </tr>
+                    <tr class="border-b">
+                        <td class="py-3 text-gray-600 font-medium">No LLM Baselines</td>
+                        <td class="py-3 text-gray-700">GPT-4, Claude comparisons pending. Zero-shot LLM performance unknown.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 text-gray-600 font-medium">Interpretability</td>
+                        <td class="py-3 text-gray-700">Attention analysis is correlational, not causal. True reasoning may differ from attention patterns.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-yellow-50 p-6 rounded-lg">
+        <h3 class="font-semibold text-lg mb-4">Future Work to Address Limitations</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">Expanded Dataset</div>
+                <p class="text-sm text-gray-600">Improve SCDB-CourtListener matching to 1000+ cases for robust evaluation.</p>
+            </div>
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">LLM Baselines</div>
+                <p class="text-sm text-gray-600">Compare against GPT-4, Claude-3, and other frontier models in zero-shot and few-shot settings.</p>
+            </div>
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">Multi-court Extension</div>
+                <p class="text-sm text-gray-600">Extend to Circuit Courts and state supreme courts to test generalization.</p>
+            </div>
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">True Forecasting</div>
+                <p class="text-sm text-gray-600">Use pre-argument briefs and oral arguments for real predictive applications.</p>
+            </div>
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">Fine-grained Outcomes</div>
+                <p class="text-sm text-gray-600">Multi-class prediction: affirm, reverse, remand, vacate, per curiam.</p>
+            </div>
+            <div class="bg-white p-4 rounded">
+                <div class="font-medium text-yellow-800 mb-2">Fairness Audit</div>
+                <p class="text-sm text-gray-600">Evaluate performance disparities across issue areas and party types.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 text-sm text-gray-500">
+        <strong>Reproducibility Note:</strong> Despite limitations, all experiments are fully reproducible. Code, data splits, and trained model weights are publicly available. We encourage the community to build upon this work.
+    </div>
+</section>
+
+<!-- Researchers -->
+<section class="card p-8 mb-12">
+    <h2 class="section-header text-2xl font-bold mb-6">
+        <span class="section-number">R</span>
+        Researchers
+    </h2>
+
+    <div class="grid md:grid-cols-2 gap-8">
+        <!-- Luis Sanchez -->
+        <div class="flex gap-4">
+            <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                LS
+            </div>
+            <div>
+                <h3 class="font-bold text-lg">Luis Sanchez</h3>
+                <p class="text-blue-600 text-sm font-medium">UC Berkeley, Computer Science</p>
+                <p class="text-gray-600 text-sm mt-2">
+                    Founding Engineer at Paloa Labs. Former SWE Intern at Adobe.
+                    Chancellor's Scholar. Focus on Agentic AI, infrastructure, and automation.
+                </p>
+                <div class="flex gap-3 mt-3">
+                    <a href="https://suislanchez.com" target="_blank" class="text-sm text-blue-600 hover:underline">suislanchez.com</a>
+                    <a href="https://linkedin.com/in/suislanchez" target="_blank" class="text-sm text-gray-500 hover:text-blue-600">LinkedIn</a>
+                    <a href="https://github.com/suislanchez" target="_blank" class="text-sm text-gray-500 hover:text-blue-600">GitHub</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shubhankar Tripathy -->
+        <div class="flex gap-4">
+            <div class="w-20 h-20 bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                ST
+            </div>
+            <div>
+                <h3 class="font-bold text-lg">Shubhankar Tripathy</h3>
+                <p class="text-green-600 text-sm font-medium">Stanford PhD, OpenAI Researcher</p>
+                <p class="text-gray-600 text-sm mt-2">
+                    PhD candidate at Stanford University. Research Scientist at OpenAI.
+                    Focus on large language models, reasoning, and AI safety.
+                </p>
+                <div class="flex gap-3 mt-3">
+                    <a href="https://scholar.google.com" target="_blank" class="text-sm text-gray-500 hover:text-blue-600">Google Scholar</a>
+                    <a href="https://linkedin.com" target="_blank" class="text-sm text-gray-500 hover:text-blue-600">LinkedIn</a>
+                </div>
+            </div>
         </div>
     </div>
 </section>
