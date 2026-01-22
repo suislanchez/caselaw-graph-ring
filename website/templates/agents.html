@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Agent Dashboard</h1>
+            <p class="text-gray-600 mt-2">Real-time status of the 4-agent LegalGPT pipeline</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="connection-status" class="flex items-center text-sm text-gray-500">
+                <span class="w-2 h-2 rounded-full bg-gray-400 mr-2"></span>
+                Connecting...
+            </span>
+            <button onclick="runPipeline()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                Run Pipeline
+            </button>
+            <button onclick="resetPipeline()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">
+                Reset
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- Pipeline Status -->
+<section class="card p-6 mb-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <span class="text-sm text-gray-500">Pipeline ID:</span>
+            <span id="pipeline-id" class="font-mono ml-2">{{ status.pipeline.id if status.pipeline else 'N/A' }}</span>
+        </div>
+        <div id="pipeline-status" class="px-4 py-2 rounded-full text-sm font-medium
+            {% if status.pipeline.status == 'running' %}bg-blue-100 text-blue-800
+            {% elif status.pipeline.status == 'completed' %}bg-green-100 text-green-800
+            {% elif status.pipeline.status == 'failed' %}bg-red-100 text-red-800
+            {% else %}bg-gray-100 text-gray-800{% endif %}">
+            {{ status.pipeline.status | upper if status.pipeline else 'IDLE' }}
+        </div>
+    </div>
+</section>
+
+<!-- Agent Cards Grid -->
+<section class="grid md:grid-cols-2 gap-6 mb-8" id="agents-grid">
+    {% for agent_id, agent in status.agents.items() %}
+    <div class="card p-6" id="agent-{{ agent_id }}">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="font-bold text-lg">{{ agent.name }}</h3>
+                <p class="text-gray-500 text-sm">{{ agent.description }}</p>
+            </div>
+            <span class="agent-status px-3 py-1 rounded-full text-xs font-medium
+                {% if agent.status == 'running' %}bg-blue-100 text-blue-800 animate-pulse-slow
+                {% elif agent.status == 'completed' %}bg-green-100 text-green-800
+                {% elif agent.status == 'failed' %}bg-red-100 text-red-800
+                {% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ agent.status | upper }}
+            </span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mb-4">
+            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                <span class="current-step">{{ agent.current_step or 'Waiting...' }}</span>
+                <span class="progress-text">{{ agent.progress }}%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ agent.progress }}%"></div>
+            </div>
+        </div>
+
+        <!-- Steps -->
+        <div class="space-y-2 mb-4">
+            {% for step_id, step in agent.steps.items() %}
+            <div class="flex items-center text-sm step-{{ step_id }}">
+                <span class="step-icon mr-2
+                    {% if step.status == 'completed' %}text-green-500
+                    {% elif step.status == 'running' %}text-blue-500
+                    {% elif step.status == 'failed' %}text-red-500
+                    {% else %}text-gray-400{% endif %}">
+                    {% if step.status == 'completed' %}✓
+                    {% elif step.status == 'running' %}◐
+                    {% elif step.status == 'failed' %}✗
+                    {% else %}○{% endif %}
+                </span>
+                <span class="step-name {% if step.status == 'running' %}font-medium{% endif %}">
+                    {{ step.name }}
+                </span>
+                <span class="ml-auto text-gray-400 step-progress">{{ step.progress }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Error Message -->
+        {% if agent.error %}
+        <div class="bg-red-50 text-red-700 p-3 rounded text-sm mb-4">
+            {{ agent.error }}
+        </div>
+        {% endif %}
+
+        <!-- Metrics -->
+        {% if agent.metrics %}
+        <div class="bg-gray-50 p-3 rounded">
+            <div class="text-xs text-gray-500 mb-2">Metrics</div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                {% for key, value in agent.metrics.items() %}
+                <div class="flex justify-between">
+                    <span class="text-gray-600">{{ key }}:</span>
+                    <span class="font-medium">{{ value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Logs (collapsible) -->
+        {% if agent.logs %}
+        <details class="mt-4">
+            <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                View Logs ({{ agent.logs | length }})
+            </summary>
+            <div class="mt-2 bg-gray-900 text-gray-300 p-3 rounded text-xs font-mono max-h-40 overflow-y-auto">
+                {% for log in agent.logs[-10:] %}
+                <div>{{ log }}</div>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</section>
+
+<!-- Dependency Graph -->
+<section class="card p-6">
+    <h2 class="font-bold text-lg mb-4">Pipeline Dependencies</h2>
+    <div class="flex items-center justify-center space-x-4">
+        <div class="text-center">
+            <div id="dep-citations" class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold
+                {% if status.agents.citations.status == 'completed' %}bg-green-500
+                {% elif status.agents.citations.status == 'running' %}bg-blue-500 animate-pulse-slow
+                {% else %}bg-gray-400{% endif %}">
+                A
+            </div>
+            <div class="text-xs mt-1">Citations</div>
+        </div>
+        <div class="text-2xl text-gray-400">→</div>
+        <div class="text-center">
+            <div id="dep-graph" class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold
+                {% if status.agents.graph.status == 'completed' %}bg-green-500
+                {% elif status.agents.graph.status == 'running' %}bg-blue-500 animate-pulse-slow
+                {% else %}bg-gray-400{% endif %}">
+                B
+            </div>
+            <div class="text-xs mt-1">Graph</div>
+        </div>
+        <div class="text-2xl text-gray-400">→</div>
+        <div class="text-center">
+            <div id="dep-model" class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold
+                {% if status.agents.model.status == 'completed' %}bg-green-500
+                {% elif status.agents.model.status == 'running' %}bg-blue-500 animate-pulse-slow
+                {% else %}bg-gray-400{% endif %}">
+                C
+            </div>
+            <div class="text-xs mt-1">Model</div>
+        </div>
+        <div class="text-2xl text-gray-400">→</div>
+        <div class="text-center">
+            <div id="dep-evaluation" class="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold
+                {% if status.agents.evaluation.status == 'completed' %}bg-green-500
+                {% elif status.agents.evaluation.status == 'running' %}bg-blue-500 animate-pulse-slow
+                {% else %}bg-gray-400{% endif %}">
+                D
+            </div>
+            <div class="text-xs mt-1">Evaluation</div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Polling-based updates (Vercel compatible - no SSE)
+class AgentDashboard {
+    constructor() {
+        this.pollInterval = 2000; // 2 seconds
+        this.polling = false;
+        this.startPolling();
+    }
+
+    async startPolling() {
+        this.polling = true;
+        this.updateConnectionStatus(true);
+
+        while (this.polling) {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                this.updateDashboard(data);
+                this.updateConnectionStatus(true);
+            } catch (e) {
+                console.error('Poll failed:', e);
+                this.updateConnectionStatus(false);
+            }
+            await new Promise(r => setTimeout(r, this.pollInterval));
+        }
+    }
+
+    updateConnectionStatus(connected) {
+        const status = document.getElementById('connection-status');
+        if (connected) {
+            status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>Connected';
+            status.classList.remove('text-gray-500', 'text-red-600');
+            status.classList.add('text-green-600');
+        } else {
+            status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span>Reconnecting...';
+            status.classList.remove('text-green-600');
+            status.classList.add('text-red-600');
+        }
+    }
+
+    updateDashboard(data) {
+        // Update pipeline status
+        const pipelineStatus = document.getElementById('pipeline-status');
+        const status = data.pipeline?.status || 'idle';
+        pipelineStatus.textContent = status.toUpperCase();
+        pipelineStatus.className = 'px-4 py-2 rounded-full text-sm font-medium ' +
+            (status === 'running' ? 'bg-blue-100 text-blue-800' :
+             status === 'completed' ? 'bg-green-100 text-green-800' :
+             status === 'failed' ? 'bg-red-100 text-red-800' :
+             'bg-gray-100 text-gray-800');
+
+        // Update each agent
+        for (const [agentId, agent] of Object.entries(data.agents || {})) {
+            this.updateAgent(agentId, agent);
+        }
+    }
+
+    updateAgent(agentId, agent) {
+        const card = document.getElementById(`agent-${agentId}`);
+        if (!card) return;
+
+        // Update status badge
+        const statusBadge = card.querySelector('.agent-status');
+        statusBadge.textContent = agent.status.toUpperCase();
+        statusBadge.className = 'agent-status px-3 py-1 rounded-full text-xs font-medium ' +
+            (agent.status === 'running' ? 'bg-blue-100 text-blue-800 animate-pulse-slow' :
+             agent.status === 'completed' ? 'bg-green-100 text-green-800' :
+             agent.status === 'failed' ? 'bg-red-100 text-red-800' :
+             'bg-gray-100 text-gray-600');
+
+        // Update progress
+        const progressFill = card.querySelector('.progress-fill');
+        progressFill.style.width = `${agent.progress}%`;
+
+        const progressText = card.querySelector('.progress-text');
+        progressText.textContent = `${agent.progress}%`;
+
+        const currentStep = card.querySelector('.current-step');
+        currentStep.textContent = agent.current_step || 'Waiting...';
+
+        // Update steps
+        for (const [stepId, step] of Object.entries(agent.steps || {})) {
+            const stepEl = card.querySelector(`.step-${stepId}`);
+            if (!stepEl) continue;
+
+            const icon = stepEl.querySelector('.step-icon');
+            icon.textContent = step.status === 'completed' ? '✓' :
+                               step.status === 'running' ? '◐' :
+                               step.status === 'failed' ? '✗' : '○';
+            icon.className = 'step-icon mr-2 ' +
+                (step.status === 'completed' ? 'text-green-500' :
+                 step.status === 'running' ? 'text-blue-500' :
+                 step.status === 'failed' ? 'text-red-500' :
+                 'text-gray-400');
+
+            const progress = stepEl.querySelector('.step-progress');
+            progress.textContent = `${step.progress}%`;
+        }
+
+        // Update dependency graph
+        const depNode = document.getElementById(`dep-${agentId}`);
+        if (depNode) {
+            depNode.className = 'w-16 h-16 rounded-full flex items-center justify-center text-white font-bold ' +
+                (agent.status === 'completed' ? 'bg-green-500' :
+                 agent.status === 'running' ? 'bg-blue-500 animate-pulse-slow' :
+                 'bg-gray-400');
+        }
+    }
+}
+
+// Initialize dashboard
+const dashboard = new AgentDashboard();
+
+// Pipeline control functions
+async function runPipeline() {
+    alert('Run: python scripts/run_pipeline.py\n\nThis will start all 4 agents with real-time status updates.');
+}
+
+async function resetPipeline() {
+    if (confirm('Reset pipeline status?')) {
+        try {
+            const response = await fetch('/api/reset', { method: 'POST' });
+            if (response.ok) {
+                location.reload();
+            }
+        } catch (e) {
+            console.error('Reset failed:', e);
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="text-center py-12">
+    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        LegalGPT
+    </h1>
+    <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+        Graph-Augmented Legal Outcome Prediction combining Citation Networks with Large Language Models for Supreme Court Case Analysis
+    </p>
+    <div class="flex justify-center gap-4">
+        <a href="/demo" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition">
+            Try the Demo
+        </a>
+        <a href="/agents" class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition">
+            View Pipeline Status
+        </a>
+    </div>
+</section>
+
+<!-- Key Metrics -->
+<section class="grid md:grid-cols-4 gap-6 mb-12">
+    <div class="card p-6 text-center">
+        <div class="text-3xl font-bold text-blue-600">0.80</div>
+        <div class="text-gray-600">Target AUROC</div>
+    </div>
+    <div class="card p-6 text-center">
+        <div class="text-3xl font-bold text-blue-600">{{ data_stats.get('total_cases', 163) }}</div>
+        <div class="text-gray-600">SCDB Cases</div>
+    </div>
+    <div class="card p-6 text-center">
+        <div class="text-3xl font-bold text-blue-600">{{ citation_stats.get('total_edges', 226) }}</div>
+        <div class="text-gray-600">Citation Edges</div>
+    </div>
+    <div class="card p-6 text-center">
+        <div class="text-3xl font-bold text-blue-600">7B</div>
+        <div class="text-gray-600">Model Parameters</div>
+    </div>
+</section>
+
+<!-- Architecture Overview -->
+<section class="card p-8 mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">System Architecture</h2>
+    <div class="bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm overflow-x-auto">
+        <pre>
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         LegalGPT Pipeline                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐  │
+│  │   SCDB Data  │───>│ CourtListener │───>│   163 Matched Cases     │  │
+│  │  (9K cases)  │    │     API       │    │   with Full Text        │  │
+│  └──────────────┘    └──────────────┘    └────────────┬─────────────┘  │
+│                                                        │                 │
+│                                           ┌────────────▼─────────────┐  │
+│                                           │   Citation Extraction    │  │
+│                                           │   (4,588 citations)      │  │
+│                                           └────────────┬─────────────┘  │
+│                                                        │                 │
+│  ┌──────────────┐    ┌──────────────┐    ┌────────────▼─────────────┐  │
+│  │   Neo4j      │<───│  GraphSAGE   │<───│   Citation Graph         │  │
+│  │   Graph DB   │    │  Embeddings  │    │   (226 edges)            │  │
+│  └──────────────┘    └──────────────┘    └──────────────────────────┘  │
+│         │                   │                                           │
+│         │                   │                                           │
+│         ▼                   ▼                                           │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │                    Hybrid Retriever                               │  │
+│  │         (60% GraphSAGE + 40% Citation Distance)                  │  │
+│  └──────────────────────────────────┬───────────────────────────────┘  │
+│                                     │                                   │
+│                                     ▼                                   │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │              Mistral-7B + QLoRA Fine-tuning                      │  │
+│  │    Query Case + Top-5 Similar Precedents → Binary Prediction     │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+        </pre>
+    </div>
+</section>
+
+<!-- Key Contributions -->
+<section class="mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Key Contributions</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+        <div class="card p-6">
+            <div class="text-3xl mb-4">📊</div>
+            <h3 class="font-bold text-lg mb-2">Graph-Augmented Retrieval</h3>
+            <p class="text-gray-600">First system to combine legal citation networks with LLM-based outcome prediction using GraphSAGE embeddings.</p>
+        </div>
+        <div class="card p-6">
+            <div class="text-3xl mb-4">🔗</div>
+            <h3 class="font-bold text-lg mb-2">Citation Network Analysis</h3>
+            <p class="text-gray-600">Novel hybrid retrieval combining embedding similarity with citation graph proximity for precedent selection.</p>
+        </div>
+        <div class="card p-6">
+            <div class="text-3xl mb-4">⚖️</div>
+            <h3 class="font-bold text-lg mb-2">SCOTUS Prediction</h3>
+            <p class="text-gray-600">Binary classification of Supreme Court case outcomes (petitioner vs. respondent) with explainable precedents.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Data Summary -->
+<section class="card p-8 mb-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Dataset Summary</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <h3 class="font-semibold text-lg mb-4">SCDB Statistics</h3>
+            <table class="w-full text-sm">
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Total Cases</td>
+                    <td class="py-2 font-medium">{{ data_stats.get('total_cases', 163) }}</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Petitioner Wins</td>
+                    <td class="py-2 font-medium">{{ data_stats.get('petitioner_wins', 93) }} (57%)</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Respondent Wins</td>
+                    <td class="py-2 font-medium">{{ data_stats.get('respondent_wins', 70) }} (43%)</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Date Range</td>
+                    <td class="py-2 font-medium">1947-2019</td>
+                </tr>
+                <tr>
+                    <td class="py-2 text-gray-600">Avg Case Length</td>
+                    <td class="py-2 font-medium">~41K characters</td>
+                </tr>
+            </table>
+        </div>
+        <div>
+            <h3 class="font-semibold text-lg mb-4">Citation Graph</h3>
+            <table class="w-full text-sm">
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Total Edges</td>
+                    <td class="py-2 font-medium">{{ citation_stats.get('total_edges', 226) }}</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Unique Sources</td>
+                    <td class="py-2 font-medium">{{ citation_stats.get('unique_sources', 24) }}</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Unique Targets</td>
+                    <td class="py-2 font-medium">{{ citation_stats.get('unique_targets', 176) }}</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="py-2 text-gray-600">Avg Out-Degree</td>
+                    <td class="py-2 font-medium">9.4 citations/case</td>
+                </tr>
+                <tr>
+                    <td class="py-2 text-gray-600">Citation Types</td>
+                    <td class="py-2 font-medium">8 types</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Expected Results -->
+<section class="card p-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Expected Results</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-3 text-left">Model</th>
+                    <th class="px-4 py-3 text-center">AUROC</th>
+                    <th class="px-4 py-3 text-center">F1</th>
+                    <th class="px-4 py-3 text-center">Accuracy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="border-b">
+                    <td class="px-4 py-3">Baseline (Longformer)</td>
+                    <td class="px-4 py-3 text-center">0.73</td>
+                    <td class="px-4 py-3 text-center">0.68</td>
+                    <td class="px-4 py-3 text-center">70.8%</td>
+                </tr>
+                <tr class="border-b">
+                    <td class="px-4 py-3">Mistral-7B (no retrieval)</td>
+                    <td class="px-4 py-3 text-center">0.74</td>
+                    <td class="px-4 py-3 text-center">0.69</td>
+                    <td class="px-4 py-3 text-center">72.0%</td>
+                </tr>
+                <tr class="border-b bg-blue-50 font-semibold">
+                    <td class="px-4 py-3">LegalGPT (GraphSAGE)</td>
+                    <td class="px-4 py-3 text-center text-blue-600">0.80</td>
+                    <td class="px-4 py-3 text-center text-blue-600">0.75</td>
+                    <td class="px-4 py-3 text-center text-blue-600">76.0%</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-3 font-medium">Improvement</td>
+                    <td class="px-4 py-3 text-center text-green-600">+9.6%</td>
+                    <td class="px-4 py-3 text-center text-green-600">+10.3%</td>
+                    <td class="px-4 py-3 text-center text-green-600">+7.3%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

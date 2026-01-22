@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Data</h1>
+    <p class="text-gray-600 mt-2">SCDB dataset and citation graph statistics</p>
+</section>
+
+<!-- Data Sources -->
+<section class="grid md:grid-cols-2 gap-6 mb-8">
+    <div class="card p-6">
+        <h2 class="font-bold text-lg mb-4">Supreme Court Database (SCDB)</h2>
+        <p class="text-gray-600 mb-4">
+            The SCDB from Washington University contains comprehensive data on Supreme Court cases
+            including voting patterns, issue areas, and case outcomes.
+        </p>
+        <table class="w-full text-sm">
+            <tr class="border-b"><td class="py-2 text-gray-600">Original Cases</td><td class="py-2 font-medium">9,144</td></tr>
+            <tr class="border-b"><td class="py-2 text-gray-600">Matched to CourtListener</td><td class="py-2 font-medium">{{ data_stats.get('total_cases', 163) }}</td></tr>
+            <tr class="border-b"><td class="py-2 text-gray-600">With Full Text</td><td class="py-2 font-medium">{{ data_stats.get('total_cases', 163) }}</td></tr>
+            <tr><td class="py-2 text-gray-600">Date Range</td><td class="py-2 font-medium">1947-2019</td></tr>
+        </table>
+    </div>
+
+    <div class="card p-6">
+        <h2 class="font-bold text-lg mb-4">CourtListener API</h2>
+        <p class="text-gray-600 mb-4">
+            Full case text retrieved from CourtListener (Free Law Project) after CAP API deprecation.
+        </p>
+        <table class="w-full text-sm">
+            <tr class="border-b"><td class="py-2 text-gray-600">API</td><td class="py-2 font-medium">CourtListener v4</td></tr>
+            <tr class="border-b"><td class="py-2 text-gray-600">Avg Case Length</td><td class="py-2 font-medium">~41,547 chars</td></tr>
+            <tr class="border-b"><td class="py-2 text-gray-600">Min Length</td><td class="py-2 font-medium">611 chars</td></tr>
+            <tr><td class="py-2 text-gray-600">Max Length</td><td class="py-2 font-medium">220,773 chars</td></tr>
+        </table>
+    </div>
+</section>
+
+<!-- Outcome Distribution -->
+<section class="card p-6 mb-8">
+    <h2 class="font-bold text-lg mb-4">Outcome Distribution</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <canvas id="outcome-chart" width="300" height="300"></canvas>
+        </div>
+        <div class="flex flex-col justify-center">
+            <div class="mb-6">
+                <div class="flex items-center mb-2">
+                    <div class="w-4 h-4 bg-green-500 rounded mr-3"></div>
+                    <span class="font-medium">Petitioner Wins</span>
+                </div>
+                <div class="text-3xl font-bold text-green-600">{{ data_stats.get('petitioner_wins', 93) }}</div>
+                <div class="text-gray-500">57% of cases</div>
+            </div>
+            <div>
+                <div class="flex items-center mb-2">
+                    <div class="w-4 h-4 bg-red-500 rounded mr-3"></div>
+                    <span class="font-medium">Respondent Wins</span>
+                </div>
+                <div class="text-3xl font-bold text-red-600">{{ data_stats.get('respondent_wins', 70) }}</div>
+                <div class="text-gray-500">43% of cases</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Train/Val/Test Split -->
+<section class="card p-6 mb-8">
+    <h2 class="font-bold text-lg mb-4">Data Splits</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+            <div class="text-3xl font-bold text-blue-600">113</div>
+            <div class="text-gray-600">Training</div>
+            <div class="text-sm text-gray-500">69%</div>
+        </div>
+        <div class="text-center p-4 bg-purple-50 rounded-lg">
+            <div class="text-3xl font-bold text-purple-600">25</div>
+            <div class="text-gray-600">Validation</div>
+            <div class="text-sm text-gray-500">15%</div>
+        </div>
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+            <div class="text-3xl font-bold text-green-600">25</div>
+            <div class="text-gray-600">Test</div>
+            <div class="text-sm text-gray-500">15%</div>
+        </div>
+    </div>
+    <p class="text-sm text-gray-500 mt-4 text-center">Stratified by outcome to maintain class balance</p>
+</section>
+
+<!-- Citation Graph Stats -->
+<section class="card p-6 mb-8">
+    <h2 class="font-bold text-lg mb-4">Citation Graph Statistics</h2>
+    <div class="grid md:grid-cols-4 gap-6 mb-6">
+        <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ citation_stats.get('total_edges', 226) }}</div>
+            <div class="text-gray-600 text-sm">Total Edges</div>
+        </div>
+        <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ citation_stats.get('unique_sources', 24) }}</div>
+            <div class="text-gray-600 text-sm">Source Cases</div>
+        </div>
+        <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{{ citation_stats.get('unique_targets', 176) }}</div>
+            <div class="text-gray-600 text-sm">Target Cases</div>
+        </div>
+        <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">9.4</div>
+            <div class="text-gray-600 text-sm">Avg Out-Degree</div>
+        </div>
+    </div>
+
+    <h3 class="font-semibold mb-3">Citation Types</h3>
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="bg-gray-50 p-3 rounded text-center">
+            <div class="font-bold">147</div>
+            <div class="text-xs text-gray-500">Supreme Court</div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded text-center">
+            <div class="font-bold">34</div>
+            <div class="text-xs text-gray-500">Federal Appeals</div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded text-center">
+            <div class="font-bold">37</div>
+            <div class="text-xs text-gray-500">State Regional</div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded text-center">
+            <div class="font-bold">8</div>
+            <div class="text-xs text-gray-500">Other</div>
+        </div>
+    </div>
+</section>
+
+<!-- Graph Visualization Placeholder -->
+<section class="card p-6">
+    <h2 class="font-bold text-lg mb-4">Citation Network Visualization</h2>
+    <div class="bg-gray-100 rounded-lg p-8 text-center">
+        <p class="text-gray-500 mb-4">Interactive citation graph visualization</p>
+        <p class="text-sm text-gray-400">
+            Run <code class="bg-gray-200 px-2 py-1 rounded">python -m src.graph.visualize</code> to generate
+        </p>
+        <div class="mt-4">
+            <a href="/static/data/interactive_graph.html" target="_blank"
+               class="text-blue-600 hover:underline">
+                Open Interactive Graph →
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Outcome distribution chart
+const ctx = document.getElementById('outcome-chart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Petitioner Wins', 'Respondent Wins'],
+        datasets: [{
+            data: [{{ data_stats.get('petitioner_wins', 93) }}, {{ data_stats.get('respondent_wins', 70) }}],
+            backgroundColor: ['#10b981', '#ef4444'],
+            borderWidth: 0
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

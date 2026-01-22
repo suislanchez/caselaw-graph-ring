@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Methodology</h1>
+    <p class="text-gray-600 mt-2">Technical details of the LegalGPT system architecture</p>
+</section>
+
+<!-- GraphSAGE Section -->
+<section class="card p-8 mb-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">GraphSAGE Embeddings</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <h3 class="font-semibold mb-4">Architecture</h3>
+            <table class="w-full text-sm">
+                <tr class="border-b"><td class="py-2 text-gray-600">Input Dimensions</td><td class="py-2 font-mono">384 (sentence-transformers)</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Hidden Dimensions</td><td class="py-2 font-mono">256</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Output Dimensions</td><td class="py-2 font-mono">128</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Layers</td><td class="py-2 font-mono">2 SAGEConv</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Dropout</td><td class="py-2 font-mono">0.3</td></tr>
+                <tr><td class="py-2 text-gray-600">Training</td><td class="py-2 font-mono">Link prediction (80/20)</td></tr>
+            </table>
+        </div>
+        <div>
+            <h3 class="font-semibold mb-4">Message Passing</h3>
+            <div class="bg-gray-100 p-4 rounded-lg font-mono text-sm">
+                <pre>
+h_v^(k) = σ(W · MEAN({h_u^(k-1), ∀u ∈ N(v)}))
+
+Where:
+- h_v^(k): embedding of node v at layer k
+- N(v): neighborhood of v (cited cases)
+- σ: ReLU activation
+- W: learnable weight matrix
+                </pre>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- QLoRA Section -->
+<section class="card p-8 mb-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">QLoRA Fine-tuning</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+        <div>
+            <h3 class="font-semibold mb-4">Model Configuration</h3>
+            <table class="w-full text-sm">
+                <tr class="border-b"><td class="py-2 text-gray-600">Base Model</td><td class="py-2 font-mono">Mistral-7B-Instruct-v0.3</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Quantization</td><td class="py-2 font-mono">4-bit NF4</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">LoRA Rank</td><td class="py-2 font-mono">16</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">LoRA Alpha</td><td class="py-2 font-mono">32</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Dropout</td><td class="py-2 font-mono">0.05</td></tr>
+                <tr><td class="py-2 text-gray-600">Target Modules</td><td class="py-2 font-mono">q,k,v,o,gate,up,down</td></tr>
+            </table>
+        </div>
+        <div>
+            <h3 class="font-semibold mb-4">Training Parameters</h3>
+            <table class="w-full text-sm">
+                <tr class="border-b"><td class="py-2 text-gray-600">Learning Rate</td><td class="py-2 font-mono">2e-4</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Batch Size</td><td class="py-2 font-mono">4 (effective 16)</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Epochs</td><td class="py-2 font-mono">3</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Max Sequence</td><td class="py-2 font-mono">4096 tokens</td></tr>
+                <tr class="border-b"><td class="py-2 text-gray-600">Warmup</td><td class="py-2 font-mono">10%</td></tr>
+                <tr><td class="py-2 text-gray-600">Trainable Params</td><td class="py-2 font-mono">~7M (0.1%)</td></tr>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- Hybrid Retrieval -->
+<section class="card p-8 mb-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Hybrid Retrieval</h2>
+    <div class="bg-gray-100 p-6 rounded-lg">
+        <div class="font-mono text-center mb-4">
+            <strong>Score(q, d) = α · sim_embedding(q, d) + (1-α) · sim_citation(q, d)</strong>
+        </div>
+        <div class="grid md:grid-cols-2 gap-8 mt-6">
+            <div class="text-center">
+                <div class="text-4xl font-bold text-blue-600">60%</div>
+                <div class="text-gray-600">GraphSAGE Embedding Similarity</div>
+                <p class="text-sm text-gray-500 mt-2">Cosine similarity between learned node embeddings</p>
+            </div>
+            <div class="text-center">
+                <div class="text-4xl font-bold text-purple-600">40%</div>
+                <div class="text-gray-600">Citation Graph Proximity</div>
+                <p class="text-sm text-gray-500 mt-2">Shortest path distance in citation network</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Prompt Template -->
+<section class="card p-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Prompt Template</h2>
+    <div class="bg-gray-900 text-green-400 p-6 rounded-lg font-mono text-sm overflow-x-auto">
+        <pre>
+[INST] You are a legal expert analyzing Supreme Court cases.
+
+## Case to Analyze
+Name: {case_name}
+Date: {date}
+Text: {case_text_truncated}
+
+## Relevant Precedents
+{for each of k=5 retrieved cases}
+### Precedent {i}: {name} ({date})
+Relevance Score: {score}
+Outcome: {outcome}
+Key Excerpt: {text_excerpt}
+{end}
+
+Based on the case text and relevant precedents, predict whether
+the PETITIONER or RESPONDENT will win this case.
+
+Prediction: [/INST]
+        </pre>
+    </div>
+</section>
+{% endblock %}

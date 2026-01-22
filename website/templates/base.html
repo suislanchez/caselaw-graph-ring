@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+        }
+        .status-idle { color: #6b7280; }
+        .status-running { color: #3b82f6; }
+        .status-completed { color: #10b981; }
+        .status-failed { color: #ef4444; }
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-pulse-slow {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-xl font-bold">LegalGPT</a>
+                    <span class="ml-2 text-blue-200 text-sm">Research</span>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <a href="/" class="hover:text-blue-200 transition">Home</a>
+                    <a href="/methodology" class="hover:text-blue-200 transition">Methodology</a>
+                    <a href="/data" class="hover:text-blue-200 transition">Data</a>
+                    <a href="/results" class="hover:text-blue-200 transition">Results</a>
+                    <a href="/agents" class="hover:text-blue-200 transition flex items-center">
+                        <span class="relative flex h-2 w-2 mr-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        Agents
+                    </a>
+                    <a href="/demo" class="bg-white text-blue-900 px-4 py-2 rounded-lg font-medium hover:bg-blue-100 transition">
+                        Try Demo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-300 py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-white font-bold mb-4">LegalGPT</h3>
+                    <p class="text-sm">Graph-Augmented Legal Outcome Prediction using Citation Networks and Large Language Models</p>
+                </div>
+                <div>
+                    <h3 class="text-white font-bold mb-4">Links</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="https://github.com" class="hover:text-white">GitHub Repository</a></li>
+                        <li><a href="/docs/RESEARCH_CONTEXT.md" class="hover:text-white">Research Paper</a></li>
+                        <li><a href="/api/status" class="hover:text-white">API Status</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-white font-bold mb-4">Target Venue</h3>
+                    <p class="text-sm">EMNLP 2026</p>
+                    <p class="text-xs mt-2 text-gray-400">Empirical Methods in Natural Language Processing</p>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-sm">
+                <p>LegalGPT Research Project</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/sse-client.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

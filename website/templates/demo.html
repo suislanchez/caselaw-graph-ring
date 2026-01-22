@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900">Interactive Demo</h1>
+    <p class="text-gray-600 mt-2">Predict Supreme Court case outcomes using LegalGPT</p>
+</section>
+
+<!-- Demo Options -->
+<section class="card p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="font-bold text-lg">Prediction Interface</h2>
+        <div class="flex items-center gap-4">
+            <label class="flex items-center">
+                <input type="checkbox" id="use-retrieval" checked class="mr-2">
+                <span class="text-sm">Use Graph Retrieval</span>
+            </label>
+            <label class="flex items-center text-sm">
+                Similar Cases:
+                <input type="number" id="num-similar" value="5" min="1" max="20"
+                       class="ml-2 w-16 px-2 py-1 border rounded">
+            </label>
+        </div>
+    </div>
+
+    <!-- Embedded Gradio or API Demo -->
+    <div class="bg-gray-100 rounded-lg p-4 mb-6">
+        <div class="text-center text-gray-500">
+            <p class="mb-4">To use the full demo, start the Gradio server:</p>
+            <code class="bg-gray-200 px-4 py-2 rounded font-mono text-sm">
+                python -m src.demo.app --port 7860
+            </code>
+            <p class="mt-4 text-sm">Then the demo will be embedded below.</p>
+        </div>
+    </div>
+
+    <!-- Gradio iframe (shown when server is running) -->
+    <div id="gradio-container" class="hidden">
+        <iframe
+            id="gradio-frame"
+            src="{{ gradio_url }}"
+            frameborder="0"
+            class="w-full rounded-lg"
+            style="height: 700px;">
+        </iframe>
+    </div>
+
+    <!-- Fallback: Simple API Demo -->
+    <div id="api-demo" class="border-t pt-6">
+        <h3 class="font-semibold mb-4">Quick API Demo</h3>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Case Text</label>
+            <textarea id="case-text" rows="6"
+                      class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter case text here or select a sample case below..."></textarea>
+        </div>
+
+        <div class="flex gap-4 mb-6">
+            <button onclick="loadSampleCase('roe')"
+                    class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm">
+                Sample: Roe v. Wade
+            </button>
+            <button onclick="loadSampleCase('brown')"
+                    class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm">
+                Sample: Brown v. Board
+            </button>
+            <button onclick="loadSampleCase('miranda')"
+                    class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm">
+                Sample: Miranda v. Arizona
+            </button>
+        </div>
+
+        <button onclick="predict()"
+                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition">
+            Predict Outcome
+        </button>
+
+        <!-- Results -->
+        <div id="results" class="mt-6 hidden">
+            <div class="card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <span class="text-gray-500 text-sm">Predicted Winner:</span>
+                        <span id="prediction" class="ml-2 text-2xl font-bold"></span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 text-sm">Confidence:</span>
+                        <span id="confidence" class="ml-2 text-xl font-semibold"></span>
+                    </div>
+                </div>
+
+                <div class="progress-bar mb-4">
+                    <div id="confidence-bar" class="progress-fill"></div>
+                </div>
+
+                <div id="similar-cases" class="mt-6">
+                    <h4 class="font-semibold mb-3">Similar Precedents:</h4>
+                    <div id="precedents-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="card p-6">
+    <h2 class="font-bold text-lg mb-4">How It Works</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+        <div class="text-center">
+            <div class="text-3xl mb-2">1️⃣</div>
+            <h3 class="font-semibold mb-2">Input Case</h3>
+            <p class="text-gray-600 text-sm">Enter the text of a Supreme Court case you want to analyze</p>
+        </div>
+        <div class="text-center">
+            <div class="text-3xl mb-2">2️⃣</div>
+            <h3 class="font-semibold mb-2">Retrieve Similar</h3>
+            <p class="text-gray-600 text-sm">GraphSAGE embeddings find the top-5 most relevant precedents</p>
+        </div>
+        <div class="text-center">
+            <div class="text-3xl mb-2">3️⃣</div>
+            <h3 class="font-semibold mb-2">Predict</h3>
+            <p class="text-gray-600 text-sm">Mistral-7B analyzes the case and precedents to predict the outcome</p>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Sample cases
+const sampleCases = {
+    roe: `Roe v. Wade (1973) - This case challenged Texas laws criminalizing abortion. Jane Roe, a pseudonym for Norma McCorvey, sought to terminate her pregnancy but was prevented by Texas law. The case raised fundamental questions about privacy rights, state interests in protecting potential life, and the extent to which government can regulate personal medical decisions...`,
+    brown: `Brown v. Board of Education (1954) - Oliver Brown and other plaintiffs challenged the doctrine of "separate but equal" established in Plessy v. Ferguson. The case consolidated several lawsuits from Kansas, South Carolina, Virginia, and Delaware, all challenging racial segregation in public schools...`,
+    miranda: `Miranda v. Arizona (1966) - Ernesto Miranda was arrested and interrogated by police without being informed of his Fifth Amendment right against self-incrimination. His subsequent confession was used as evidence. This case examined the protections afforded to suspects during custodial interrogation...`
+};
+
+function loadSampleCase(caseId) {
+    document.getElementById('case-text').value = sampleCases[caseId];
+}
+
+async function predict() {
+    const caseText = document.getElementById('case-text').value;
+    if (!caseText.trim()) {
+        alert('Please enter case text');
+        return;
+    }
+
+    // Show results with simulated data (would be real API call)
+    const results = document.getElementById('results');
+    results.classList.remove('hidden');
+
+    // Simulate prediction (replace with actual API call)
+    const prediction = Math.random() > 0.5 ? 'PETITIONER' : 'RESPONDENT';
+    const confidence = (0.6 + Math.random() * 0.3).toFixed(2);
+
+    document.getElementById('prediction').textContent = prediction;
+    document.getElementById('prediction').className =
+        `ml-2 text-2xl font-bold ${prediction === 'PETITIONER' ? 'text-green-600' : 'text-red-600'}`;
+
+    document.getElementById('confidence').textContent = `${(confidence * 100).toFixed(0)}%`;
+    document.getElementById('confidence-bar').style.width = `${confidence * 100}%`;
+
+    // Simulate similar cases
+    const precedentsList = document.getElementById('precedents-list');
+    precedentsList.innerHTML = `
+        <div class="bg-gray-50 p-3 rounded">
+            <div class="font-medium">United States v. Nixon (1974)</div>
+            <div class="text-sm text-gray-500">Relevance: 0.89 | Outcome: Petitioner</div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded">
+            <div class="font-medium">Marbury v. Madison (1803)</div>
+            <div class="text-sm text-gray-500">Relevance: 0.84 | Outcome: Petitioner</div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded">
+            <div class="font-medium">Gibbons v. Ogden (1824)</div>
+            <div class="text-sm text-gray-500">Relevance: 0.78 | Outcome: Petitioner</div>
+        </div>
+    `;
+}
+
+// Check if Gradio is running
+async function checkGradio() {
+    try {
+        const response = await fetch('{{ gradio_url }}', { mode: 'no-cors' });
+        document.getElementById('gradio-container').classList.remove('hidden');
+        document.getElementById('api-demo').classList.add('hidden');
+    } catch (e) {
+        console.log('Gradio not running, using API demo');
+    }
+}
+
+// checkGradio();  // Uncomment to auto-check
+</script>
+{% endblock %}

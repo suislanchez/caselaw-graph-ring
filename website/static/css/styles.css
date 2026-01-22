@@ -1,0 +1,97 @@
+/* LegalGPT Research Website - Custom Styles */
+
+/* Base overrides */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Card hover effects */
+.card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* Progress bar animations */
+.progress-fill {
+    transition: width 0.5s ease-out;
+}
+
+/* Status indicator animations */
+@keyframes pulse-ring {
+    0% { transform: scale(0.95); opacity: 1; }
+    50% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(0.95); opacity: 1; }
+}
+
+.status-running {
+    animation: pulse-ring 2s infinite;
+}
+
+/* Code blocks */
+pre {
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+pre::-webkit-scrollbar {
+    height: 6px;
+}
+
+pre::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 3px;
+}
+
+/* Table striping */
+tbody tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Navigation active state */
+nav a.active {
+    color: #93c5fd;
+    font-weight: 500;
+}
+
+/* Agent card status colors */
+.agent-idle { border-left: 4px solid #9ca3af; }
+.agent-running { border-left: 4px solid #3b82f6; }
+.agent-completed { border-left: 4px solid #10b981; }
+.agent-failed { border-left: 4px solid #ef4444; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .gradient-bg nav {
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Print styles */
+@media print {
+    nav, footer, .no-print {
+        display: none;
+    }
+
+    .card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #e5e7eb;
+    }
+}

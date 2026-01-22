@@ -1,0 +1,11 @@
+# LegalGPT Research Website Dependencies
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Templates
+jinja2>=3.1.0
+
+# Utilities
+python-multipart>=0.0.6
