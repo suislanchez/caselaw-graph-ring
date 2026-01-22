@@ -33,6 +33,46 @@ COURTLISTENER_API_BASE = "https://www.courtlistener.com/api/rest/v4"
 COURTLISTENER_API_KEY = os.environ.get("COURTLISTENER_API_KEY")
 
 
+def extract_id_from_url_or_value(value, resource_type: str = "clusters") -> Optional[int]:
+    """Extract numeric ID from a URL, dict, or int value.
+
+    Args:
+        value: Can be int, dict with 'id' key, or URL string like
+               "https://.../clusters/12345/"
+        resource_type: The resource type to look for in URL (e.g., "clusters")
+
+    Returns:
+        Integer ID or None if extraction fails
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, dict):
+        return value.get("id")
+
+    if isinstance(value, str):
+        # Extract ID from URL like "https://.../clusters/12345/"
+        if f"/{resource_type}/" in value:
+            try:
+                # Get the part after /clusters/ and before the next /
+                parts = value.rstrip("/").split(f"/{resource_type}/")
+                if len(parts) >= 2:
+                    id_str = parts[-1].split("/")[0]
+                    return int(id_str)
+            except (ValueError, IndexError):
+                pass
+        # Try direct conversion
+        try:
+            return int(value)
+        except ValueError:
+            pass
+
+    return None
+
+
 class CourtListenerCase:
     """Represents a case from CourtListener API."""
 
@@ -226,35 +266,47 @@ class CourtListenerClient:
                     else:
                         raise
 
-    async def get_cluster(self, cluster_id: int) -> Optional[Dict[str, Any]]:
+    async def get_cluster(self, cluster_id) -> Optional[Dict[str, Any]]:
         """Get an opinion cluster by ID.
 
         A cluster groups related opinions (majority, dissent, concurrence).
 
         Args:
-            cluster_id: Cluster ID
+            cluster_id: Cluster ID (int, dict with 'id', or URL string)
 
         Returns:
             Cluster data or None
         """
+        # Extract numeric ID from various formats
+        numeric_id = extract_id_from_url_or_value(cluster_id, "clusters")
+        if numeric_id is None:
+            logger.warning(f"Could not extract cluster ID from: {cluster_id}")
+            return None
+
         try:
-            return await self._request(f"clusters/{cluster_id}/")
+            return await self._request(f"clusters/{numeric_id}/")
         except aiohttp.ClientResponseError as e:
             if e.status == 404:
                 return None
             raise
 
-    async def get_opinions_for_cluster(self, cluster_id: int) -> List[Dict[str, Any]]:
+    async def get_opinions_for_cluster(self, cluster_id) -> List[Dict[str, Any]]:
         """Get all opinions for a cluster.
 
         Args:
-            cluster_id: Cluster ID
+            cluster_id: Cluster ID (int, dict with 'id', or URL string)
 
         Returns:
             List of opinion objects
         """
+        # Extract numeric ID from various formats
+        numeric_id = extract_id_from_url_or_value(cluster_id, "clusters")
+        if numeric_id is None:
+            logger.warning(f"Could not extract cluster ID from: {cluster_id}")
+            return []
+
         opinions = []
-        params = {"cluster": cluster_id}
+        params = {"cluster": numeric_id}
 
         data = await self._request("opinions/", params)
         opinions.extend(data.get("results", []))
@@ -268,24 +320,30 @@ class CourtListenerClient:
 
     async def get_case_by_cluster_id(
         self,
-        cluster_id: int,
+        cluster_id,
         save_to_disk: bool = True
     ) -> Optional[CourtListenerCase]:
         """Fetch a complete case by cluster ID.
 
         Args:
-            cluster_id: Opinion cluster ID
+            cluster_id: Opinion cluster ID (int, dict with 'id', or URL string)
             save_to_disk: Save to data/raw/cases/
 
         Returns:
             CourtListenerCase or None
         """
-        cluster = await self.get_cluster(cluster_id)
+        # Extract numeric ID from various formats
+        numeric_id = extract_id_from_url_or_value(cluster_id, "clusters")
+        if numeric_id is None:
+            logger.warning(f"Could not extract cluster ID from: {cluster_id}")
+            return None
+
+        cluster = await self.get_cluster(numeric_id)
         if not cluster:
             return None
 
         # Get opinions
-        opinions = await self.get_opinions_for_cluster(cluster_id)
+        opinions = await self.get_opinions_for_cluster(numeric_id)
 
         # Extract court info - handle nested objects or URLs
         docket = cluster.get("docket") or {}
@@ -309,7 +367,7 @@ class CourtListenerClient:
                 citations.append(c)
 
         case = CourtListenerCase(
-            cluster_id=cluster_id,
+            cluster_id=numeric_id,
             case_name=cluster.get("case_name", "Unknown"),
             date_filed=cluster.get("date_filed"),
             court_id=court_id,
@@ -375,21 +433,14 @@ class CourtListenerClient:
                 if max_results and count >= max_results:
                     break
 
-                cluster_id = opinion.get("cluster")
+                # Extract cluster ID from various formats using helper
+                cluster_id = extract_id_from_url_or_value(
+                    opinion.get("cluster"), "clusters"
+                )
+                if cluster_id is None:
+                    continue
 
-                # Handle different formats: int, dict with id, or URL string
-                if isinstance(cluster_id, dict):
-                    cluster_id = cluster_id.get("id")
-                elif isinstance(cluster_id, str):
-                    # Extract ID from URL like "https://.../clusters/12345/"
-                    if "/clusters/" in cluster_id:
-                        cluster_id = cluster_id.rstrip("/").split("/")[-1]
-                    try:
-                        cluster_id = int(cluster_id)
-                    except (ValueError, TypeError):
-                        continue
-
-                if cluster_id and cluster_id not in cluster_ids_seen:
+                if cluster_id not in cluster_ids_seen:
                     cluster_ids_seen.add(cluster_id)
 
                     try:
@@ -433,7 +484,10 @@ class CourtListenerClient:
             results = data.get("results", [])
 
             if results:
-                cluster_id = results[0].get("cluster_id")
+                # Extract cluster ID from various formats
+                cluster_id = extract_id_from_url_or_value(
+                    results[0].get("cluster_id"), "clusters"
+                )
                 if cluster_id:
                     return await self.get_case_by_cluster_id(cluster_id, save_to_disk)
         except Exception as e:

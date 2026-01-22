@@ -13,6 +13,8 @@ build/
 data/raw/
 data/processed/
 data/embeddings/
+data/splits/
+data/citations/link_cache.json
 *.parquet
 *.pt
 

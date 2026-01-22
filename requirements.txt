@@ -31,6 +31,11 @@ modal>=0.55.0
 wandb>=0.16.0
 tqdm>=4.66.0
 matplotlib>=3.8.0
+networkx>=3.2.0
+pyvis>=0.3.2
+
+# Demo
+gradio>=4.0.0
 
 # API clients
 httpx>=0.25.0

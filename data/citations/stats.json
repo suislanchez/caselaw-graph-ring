@@ -1,0 +1,113 @@
+{
+  "total_edges": 226,
+  "unique_source_cases": 24,
+  "unique_target_cases": 176,
+  "citation_types": {
+    "supreme_court_sct": 63,
+    "supreme_court_led": 69,
+    "federal_appeals": 34,
+    "state_regional": 37,
+    "state_specific": 1,
+    "federal_district": 6,
+    "supreme_court_us_reports": 15,
+    "bankruptcy": 1
+  },
+  "year_range": [
+    1971,
+    2016
+  ],
+  "avg_weight": 4.659435440675004,
+  "out_degree_stats": {
+    "min": 1,
+    "max": 44,
+    "avg": 9.416666666666666
+  },
+  "in_degree_stats": {
+    "min": 1,
+    "max": 9,
+    "avg": 1.2840909090909092
+  },
+  "most_cited_cases": [
+    [
+      "cl_9336867",
+      9
+    ],
+    [
+      "cl_111722",
+      8
+    ],
+    [
+      "cl_111719",
+      7
+    ],
+    [
+      "cl_110424",
+      5
+    ],
+    [
+      "cl_108786",
+      5
+    ],
+    [
+      "cl_9184209",
+      5
+    ],
+    [
+      "cl_1087667",
+      3
+    ],
+    [
+      "cl_109882",
+      3
+    ],
+    [
+      "cl_109881",
+      3
+    ],
+    [
+      "cl_111838",
+      2
+    ],
+    [
+      "cl_111623",
+      2
+    ],
+    [
+      "cl_117937",
+      2
+    ],
+    [
+      "cl_7345171",
+      2
+    ],
+    [
+      "cl_106559",
+      2
+    ],
+    [
+      "cl_9084910",
+      2
+    ],
+    [
+      "cl_109934",
+      2
+    ],
+    [
+      "cl_110737",
+      2
+    ],
+    [
+      "cl_9076416",
+      2
+    ],
+    [
+      "cl_136346",
+      2
+    ],
+    [
+      "cl_3187592",
+      2
+    ]
+  ],
+  "timestamp": "2026-01-17T21:59:14.255350"
+}

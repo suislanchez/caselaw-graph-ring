@@ -21,8 +21,8 @@ class RetrievedCase(BaseModel):
     """A retrieved case with relevance information."""
 
     case_id: str
-    name: str
-    text: str
+    name: str = ""  # May be empty for stub nodes
+    text: str = ""  # May be empty for stub nodes
     similarity_score: float
     citation_distance: int  # Hops in citation graph (-1 if not connected)
     date: Optional[str] = None
@@ -236,7 +236,7 @@ class CaseRetriever:
             return [
                 RetrievedCase(
                     case_id=r["id"],
-                    name=r["name"],
+                    name=r["name"] or "",
                     date=r["date"],
                     court=r["court"],
                     citation=r["citation"],
@@ -299,7 +299,7 @@ class CaseRetriever:
             return [
                 RetrievedCase(
                     case_id=r["id"],
-                    name=r["name"],
+                    name=r["name"] or "",
                     date=r["date"],
                     court=r["court"],
                     citation=r["citation"],
@@ -482,7 +482,7 @@ class CaseRetriever:
             return [
                 RetrievedCase(
                     case_id=r["id"],
-                    name=r["name"],
+                    name=r["name"] or "",
                     date=r["date"],
                     court=r["court"],
                     citation=r["citation"],
@@ -513,7 +513,7 @@ class CaseRetriever:
             return [
                 RetrievedCase(
                     case_id=r["id"],
-                    name=r["name"],
+                    name=r["name"] or "",
                     date=r["date"],
                     court=r["court"],
                     citation=r["citation"],

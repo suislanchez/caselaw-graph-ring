@@ -163,8 +163,16 @@ def load_cases_parquet(input_path: Union[str, Path]) -> List[Case]:
 
         # Handle NaN values
         for key, value in list(data.items()):
-            if pd.isna(value):
-                data[key] = None
+            try:
+                # pd.isna can return array for array inputs
+                is_na = pd.isna(value)
+                if isinstance(is_na, bool) and is_na:
+                    data[key] = None
+                elif hasattr(is_na, '__iter__') and not isinstance(value, str):
+                    # For arrays, check if it's empty or all NaN
+                    pass  # Keep the value as-is
+            except (ValueError, TypeError):
+                pass  # Keep the value as-is
 
         # Handle datetime
         if 'date' in data and data['date'] is not None:

@@ -16,37 +16,21 @@ from .dataset import (
     load_split_data,
     create_sample_data,
 )
-from .trainer import LegalGPTTrainerLocal
-from .inference import (
-    LegalGPTInference,
-    LegalGPTPredictor,
-    PredictionResult,
-)
+from .trainer import LegalGPTTrainer, TrainingConfig, train_legalgpt
+from .inference import LegalGPTPredictor, PredictionResult
 from .evaluate import (
-    Evaluator,
-    EvalResults,
+    EvaluationMetrics,
     evaluate_model,
     compute_metrics,
+    save_metrics,
+    compare_models,
 )
 from .ablations import (
-    AblationRunner,
+    AblationStudyRunner,
     AblationResult,
     AblationConfig,
-    RandomRetriever,
-    NoRetriever,
+    STANDARD_ABLATIONS,
     run_ablation_study,
-)
-from .modal_config import (
-    app,
-    gpu_image,
-    model_cache,
-    data_volume,
-    results_volume,
-    CACHE_DIR,
-    DATA_DIR,
-    RESULTS_DIR,
-    LegalGPTTrainer,
-    LegalGPTInference as ModalLegalGPTInference,
 )
 
 __all__ = [
@@ -65,32 +49,22 @@ __all__ = [
     "load_split_data",
     "create_sample_data",
     # Training
-    "LegalGPTTrainerLocal",
+    "LegalGPTTrainer",
+    "TrainingConfig",
+    "train_legalgpt",
     # Inference
-    "LegalGPTInference",
     "LegalGPTPredictor",
     "PredictionResult",
     # Evaluation
-    "Evaluator",
-    "EvalResults",
+    "EvaluationMetrics",
     "evaluate_model",
     "compute_metrics",
+    "save_metrics",
+    "compare_models",
     # Ablations
-    "AblationRunner",
+    "AblationStudyRunner",
     "AblationResult",
     "AblationConfig",
-    "RandomRetriever",
-    "NoRetriever",
+    "STANDARD_ABLATIONS",
     "run_ablation_study",
-    # Modal
-    "app",
-    "gpu_image",
-    "model_cache",
-    "data_volume",
-    "results_volume",
-    "CACHE_DIR",
-    "DATA_DIR",
-    "RESULTS_DIR",
-    "LegalGPTTrainer",
-    "ModalLegalGPTInference",
 ]

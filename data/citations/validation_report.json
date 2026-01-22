@@ -1,0 +1,60 @@
+{
+  "extraction": {
+    "sample_size": 50,
+    "total_citations_extracted": 1682,
+    "unique_citations": 1641,
+    "avg_citations_per_case": 33.64,
+    "median_citations_per_case": 21.0,
+    "max_citations_per_case": 128,
+    "min_citations_per_case": 0,
+    "cases_with_no_citations": 1,
+    "citations_by_type": {
+      "supreme_court_sct": 192,
+      "federal_appeals": 725,
+      "supreme_court_led": 148,
+      "federal_appeals_unpublished": 13,
+      "federal_district": 130,
+      "supreme_court_us_reports": 304,
+      "state_regional": 118,
+      "state_specific": 30,
+      "bankruptcy": 20,
+      "supreme_court_early": 2
+    },
+    "potential_false_positives": [
+      "611 Fed.Appx. 8, 11 (volume > page)",
+      "153 F.3d 5, 11 (volume > page)",
+      "424 U.S. 1, 96 (volume > page)",
+      "749 F.2d 5, 6 (volume > page)",
+      "749 F.2d 5, 7 (volume > page)",
+      "460 U.S. 1, 25 (volume > page)",
+      "300 F.3d 1, 9 (volume > page)",
+      "471 U.S. 1, 7 (volume > page)",
+      "470 U.S. 1, 14 (volume > page)",
+      "84 L.Ed.2d 1 (volume > page)",
+      "321 U.S. 1, 11 (volume > page)",
+      "221 U.S. 1, 77 (volume > page)",
+      "155 U.S. 3 (volume > page)",
+      "157 F. 2 (volume > page)",
+      "113 F. 2 (volume > page)",
+      "331 F. 2 (volume > page)",
+      "515 F. 2 (volume > page)",
+      "527 F. 2 (volume > page)",
+      "55 Cal. App. 2d 136, 130 (volume > page)",
+      "569 F. 2 (volume > page)"
+    ],
+    "suspicious_patterns": [
+      "Case cl_8704608 has 113 citations - unusually high, check for extraction issues",
+      "Case cl_8746417 has 102 citations - unusually high, check for extraction issues",
+      "Case cl_2316519 has 117 citations - unusually high, check for extraction issues",
+      "Case cl_808423 has 128 citations - unusually high, check for extraction issues"
+    ],
+    "avg_text_length": 49023.2,
+    "citations_per_1000_chars": 0.6862057148452162,
+    "timestamp": "2026-01-17T21:59:14.255582"
+  },
+  "linking": null,
+  "edge_stats": null,
+  "recommendations": [],
+  "overall_quality_score": 0.0,
+  "timestamp": "2026-01-17T21:59:14.836119"
+}

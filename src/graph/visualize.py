@@ -1,623 +1,423 @@
-"""Graph visualization utilities for LegalGPT citation network."""
+"""Citation graph visualization utilities."""
 
+import json
 from pathlib import Path
-from typing import Optional
+from typing import List, Dict, Optional, Any, Tuple
+import sys
 
-import networkx as nx
-import numpy as np
-from neo4j import GraphDatabase
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from src.config import (
-    NEO4J_URI,
-    NEO4J_USER,
-    NEO4J_PASSWORD,
-    RESULTS_DIR,
-)
+from src.config import DATA_DIR, RESULTS_DIR
 
 
-def load_subgraph_from_neo4j(
-    center_case_id: str,
-    max_hops: int = 2,
-    max_nodes: int = 100,
-    driver=None,
-) -> nx.DiGraph:
-    """
-    Load a subgraph centered on a case from Neo4j.
-
-    Args:
-        center_case_id: ID of the center case
-        max_hops: Maximum hops from center
-        max_nodes: Maximum nodes to include
-        driver: Neo4j driver instance
-
-    Returns:
-        NetworkX DiGraph
-    """
-    close_driver = False
-    if driver is None:
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        close_driver = True
-
-    try:
-        with driver.session() as session:
-            # Get subgraph nodes and edges
-            result = session.run(
-                """
-                MATCH path = (center:Case {id: $center_id})-[:CITES*0..$max_hops]-(c:Case)
-                WITH DISTINCT c
-                LIMIT $max_nodes
-                WITH collect(c) AS nodes
-                UNWIND nodes AS n1
-                UNWIND nodes AS n2
-                OPTIONAL MATCH (n1)-[r:CITES]->(n2)
-                WITH n1, n2, r
-                WHERE r IS NOT NULL
-                RETURN n1.id AS source_id,
-                       n1.name AS source_name,
-                       n1.outcome AS source_outcome,
-                       n1.year AS source_year,
-                       n2.id AS target_id,
-                       n2.name AS target_name,
-                       n2.outcome AS target_outcome,
-                       n2.year AS target_year,
-                       r.weight AS weight
-                """,
-                center_id=center_case_id,
-                max_hops=max_hops,
-                max_nodes=max_nodes,
-            )
-
-            G = nx.DiGraph()
-            edges = list(result)
-
-            for e in edges:
-                # Add source node
-                if e["source_id"] not in G:
-                    G.add_node(
-                        e["source_id"],
-                        name=e["source_name"],
-                        outcome=e["source_outcome"],
-                        year=e["source_year"],
-                        is_center=(e["source_id"] == center_case_id),
-                    )
-
-                # Add target node
-                if e["target_id"] not in G:
-                    G.add_node(
-                        e["target_id"],
-                        name=e["target_name"],
-                        outcome=e["target_outcome"],
-                        year=e["target_year"],
-                        is_center=(e["target_id"] == center_case_id),
-                    )
-
-                # Add edge
-                G.add_edge(
-                    e["source_id"],
-                    e["target_id"],
-                    weight=e["weight"] or 1.0,
-                )
-
-            # If center node wasn't in any edge, add it
-            if center_case_id not in G:
-                center_result = session.run(
-                    """
-                    MATCH (c:Case {id: $center_id})
-                    RETURN c.name AS name, c.outcome AS outcome, c.year AS year
-                    """,
-                    center_id=center_case_id,
-                )
-                center_data = center_result.single()
-                if center_data:
-                    G.add_node(
-                        center_case_id,
-                        name=center_data["name"],
-                        outcome=center_data["outcome"],
-                        year=center_data["year"],
-                        is_center=True,
-                    )
-
-            return G
-
-    finally:
-        if close_driver:
-            driver.close()
+def load_citation_edges(edges_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    """Load citation edges from CSV."""
+    import csv
+    
+    if edges_path is None:
+        edges_path = DATA_DIR / "citations" / "edges.csv"
+    
+    edges = []
+    if edges_path.exists():
+        with open(edges_path) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                edges.append({
+                    "source": row.get("source_case_id", row.get("source", "")),
+                    "target": row.get("target_case_id", row.get("target", "")),
+                    "weight": float(row.get("weight", 1.0)),
+                })
+    
+    return edges
 
 
-def visualize_citation_graph_matplotlib(
-    G: nx.DiGraph,
+def load_cases(cases_path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    """Load case metadata."""
+    if cases_path is None:
+        cases_path = DATA_DIR / "processed" / "scdb_matched.parquet"
+    
+    cases = []
+    
+    if cases_path.exists() and cases_path.suffix == ".parquet":
+        try:
+            import pandas as pd
+            df = pd.read_parquet(cases_path)
+            cases = df.to_dict("records")
+        except ImportError:
+            pass
+    elif cases_path.with_suffix(".json").exists():
+        with open(cases_path.with_suffix(".json")) as f:
+            cases = json.load(f)
+    
+    return cases
+
+
+def create_networkx_graph(
+    edges: List[Dict[str, Any]],
+    cases: Optional[List[Dict[str, Any]]] = None,
+):
+    """Create NetworkX graph from edges."""
+    import networkx as nx
+    
+    G = nx.DiGraph()
+    
+    # Add edges
+    for edge in edges:
+        G.add_edge(
+            edge["source"],
+            edge["target"],
+            weight=edge.get("weight", 1.0),
+        )
+    
+    # Add node attributes if cases provided
+    if cases:
+        case_dict = {c.get("id", c.get("case_id", "")): c for c in cases}
+        for node in G.nodes():
+            if node in case_dict:
+                case = case_dict[node]
+                G.nodes[node]["name"] = case.get("name", "")[:50]
+                G.nodes[node]["outcome"] = case.get("outcome", "unknown")
+                G.nodes[node]["year"] = case.get("year", case.get("date", "")[:4])
+    
+    return G
+
+
+def compute_graph_stats(G) -> Dict[str, Any]:
+    """Compute graph statistics."""
+    import networkx as nx
+    
+    stats = {
+        "num_nodes": G.number_of_nodes(),
+        "num_edges": G.number_of_edges(),
+        "density": nx.density(G),
+        "avg_in_degree": sum(d for n, d in G.in_degree()) / G.number_of_nodes() if G.number_of_nodes() > 0 else 0,
+        "avg_out_degree": sum(d for n, d in G.out_degree()) / G.number_of_nodes() if G.number_of_nodes() > 0 else 0,
+    }
+    
+    # Connected components (for undirected version)
+    G_undirected = G.to_undirected()
+    stats["num_components"] = nx.number_connected_components(G_undirected)
+    
+    # Largest component
+    largest_cc = max(nx.connected_components(G_undirected), key=len)
+    stats["largest_component_size"] = len(largest_cc)
+    stats["largest_component_ratio"] = len(largest_cc) / G.number_of_nodes() if G.number_of_nodes() > 0 else 0
+    
+    # Top cited cases (highest in-degree)
+    in_degrees = sorted(G.in_degree(), key=lambda x: x[1], reverse=True)[:10]
+    stats["top_cited"] = [{"case_id": n, "citations": d} for n, d in in_degrees]
+    
+    return stats
+
+
+def plot_citation_network(
+    G,
     output_path: Optional[Path] = None,
-    figsize: tuple[int, int] = (14, 10),
-    title: str = "Citation Network",
-    show_labels: bool = True,
-) -> None:
+    figsize: Tuple[int, int] = (16, 12),
+    node_size_factor: float = 100,
+    show_labels: bool = False,
+    color_by_outcome: bool = True,
+    title: str = "Supreme Court Citation Network",
+):
     """
-    Visualize citation graph using matplotlib.
-
+    Plot citation network using matplotlib.
+    
     Args:
-        G: NetworkX DiGraph
-        output_path: Path to save figure (displays if None)
+        G: NetworkX graph
+        output_path: Path to save figure
         figsize: Figure size
-        title: Plot title
+        node_size_factor: Multiplier for node sizes (based on degree)
         show_labels: Whether to show node labels
+        color_by_outcome: Color nodes by case outcome
+        title: Plot title
     """
     import matplotlib.pyplot as plt
-
+    import networkx as nx
+    import numpy as np
+    
     fig, ax = plt.subplots(figsize=figsize)
-
+    
     # Layout
     pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
-
-    # Node colors by outcome
-    node_colors = []
-    for node in G.nodes():
-        outcome = G.nodes[node].get("outcome")
-        is_center = G.nodes[node].get("is_center", False)
-        if is_center:
-            node_colors.append("#FFD700")  # Gold for center
-        elif outcome == "petitioner":
-            node_colors.append("#4CAF50")  # Green
-        elif outcome == "respondent":
-            node_colors.append("#F44336")  # Red
-        else:
-            node_colors.append("#9E9E9E")  # Gray for unknown
-
-    # Node sizes
-    node_sizes = [
-        800 if G.nodes[node].get("is_center", False) else 300
-        for node in G.nodes()
-    ]
-
+    
+    # Node sizes based on in-degree
+    in_degrees = dict(G.in_degree())
+    node_sizes = [node_size_factor * (1 + in_degrees.get(n, 0)) for n in G.nodes()]
+    
+    # Node colors
+    if color_by_outcome:
+        color_map = {"petitioner": "#28a745", "respondent": "#dc3545", "unknown": "#6c757d"}
+        node_colors = [
+            color_map.get(G.nodes[n].get("outcome", "unknown"), "#6c757d")
+            for n in G.nodes()
+        ]
+    else:
+        node_colors = "#1f77b4"
+    
     # Draw
     nx.draw_networkx_nodes(
-        G, pos, node_color=node_colors, node_size=node_sizes, alpha=0.8, ax=ax
+        G, pos,
+        node_size=node_sizes,
+        node_color=node_colors,
+        alpha=0.7,
+        ax=ax,
     )
+    
     nx.draw_networkx_edges(
-        G, pos, edge_color="#CCCCCC", arrows=True, arrowsize=10, alpha=0.5, ax=ax
+        G, pos,
+        edge_color="#cccccc",
+        alpha=0.3,
+        arrows=True,
+        arrowsize=10,
+        ax=ax,
     )
-
+    
     if show_labels:
-        # Truncate labels
-        labels = {
-            node: G.nodes[node].get("name", node)[:30] + "..."
-            if len(G.nodes[node].get("name", node)) > 30
-            else G.nodes[node].get("name", node)
-            for node in G.nodes()
-        }
-        nx.draw_networkx_labels(G, pos, labels, font_size=8, ax=ax)
-
-    ax.set_title(title)
-    ax.axis("off")
-
-    # Legend
-    legend_elements = [
-        plt.scatter([], [], c="#FFD700", s=100, label="Query Case"),
-        plt.scatter([], [], c="#4CAF50", s=100, label="Petitioner Win"),
-        plt.scatter([], [], c="#F44336", s=100, label="Respondent Win"),
-        plt.scatter([], [], c="#9E9E9E", s=100, label="Unknown"),
-    ]
-    ax.legend(handles=legend_elements, loc="upper left")
-
-    plt.tight_layout()
-
-    if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_path, dpi=150, bbox_inches="tight")
-        print(f"Saved figure to {output_path}")
-    else:
-        plt.show()
-
-    plt.close()
-
-
-def visualize_citation_graph_plotly(
-    G: nx.DiGraph,
-    output_path: Optional[Path] = None,
-    title: str = "Citation Network",
-) -> None:
-    """
-    Create interactive citation graph visualization using Plotly.
-
-    Args:
-        G: NetworkX DiGraph
-        output_path: Path to save HTML file (displays if None)
-        title: Plot title
-    """
-    import plotly.graph_objects as go
-
-    # Layout
-    pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
-
-    # Edge traces
-    edge_x = []
-    edge_y = []
-    for edge in G.edges():
-        x0, y0 = pos[edge[0]]
-        x1, y1 = pos[edge[1]]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
-
-    edge_trace = go.Scatter(
-        x=edge_x,
-        y=edge_y,
-        line=dict(width=0.5, color="#888"),
-        hoverinfo="none",
-        mode="lines",
-    )
-
-    # Node traces
-    node_x = []
-    node_y = []
-    node_colors = []
-    node_sizes = []
-    node_text = []
-
-    for node in G.nodes():
-        x, y = pos[node]
-        node_x.append(x)
-        node_y.append(y)
-
-        outcome = G.nodes[node].get("outcome")
-        is_center = G.nodes[node].get("is_center", False)
-
-        if is_center:
-            node_colors.append("#FFD700")
-            node_sizes.append(25)
-        elif outcome == "petitioner":
-            node_colors.append("#4CAF50")
-            node_sizes.append(15)
-        elif outcome == "respondent":
-            node_colors.append("#F44336")
-            node_sizes.append(15)
-        else:
-            node_colors.append("#9E9E9E")
-            node_sizes.append(12)
-
-        name = G.nodes[node].get("name", node)
-        year = G.nodes[node].get("year", "")
-        node_text.append(f"{name}<br>Year: {year}<br>Outcome: {outcome}")
-
-    node_trace = go.Scatter(
-        x=node_x,
-        y=node_y,
-        mode="markers",
-        hoverinfo="text",
-        text=node_text,
-        marker=dict(
-            color=node_colors,
-            size=node_sizes,
-            line=dict(width=1, color="#fff"),
-        ),
-    )
-
-    # Create figure
-    fig = go.Figure(
-        data=[edge_trace, node_trace],
-        layout=go.Layout(
-            title=title,
-            showlegend=False,
-            hovermode="closest",
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            margin=dict(b=0, l=0, r=0, t=40),
-        ),
-    )
-
-    if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.write_html(str(output_path))
-        print(f"Saved interactive visualization to {output_path}")
-    else:
-        fig.show()
-
-
-def visualize_embedding_space(
-    node_ids: list[str],
-    embeddings: np.ndarray,
-    outcomes: Optional[list[str]] = None,
-    output_path: Optional[Path] = None,
-    method: str = "tsne",
-    title: str = "Case Embedding Space",
-) -> None:
-    """
-    Visualize case embeddings in 2D using dimensionality reduction.
-
-    Args:
-        node_ids: List of case IDs
-        embeddings: Embedding matrix [num_nodes, embedding_dim]
-        outcomes: Optional list of outcomes for coloring
-        output_path: Path to save figure
-        method: 'tsne' or 'umap'
-        title: Plot title
-    """
-    import matplotlib.pyplot as plt
-
-    # Reduce dimensionality
-    if method == "tsne":
-        from sklearn.manifold import TSNE
-
-        reducer = TSNE(n_components=2, random_state=42, perplexity=min(30, len(embeddings) - 1))
-    elif method == "umap":
-        try:
-            from umap import UMAP
-
-            reducer = UMAP(n_components=2, random_state=42)
-        except ImportError:
-            print("UMAP not installed, falling back to t-SNE")
-            from sklearn.manifold import TSNE
-
-            reducer = TSNE(n_components=2, random_state=42, perplexity=min(30, len(embeddings) - 1))
-    else:
-        raise ValueError(f"Unknown method: {method}")
-
-    coords = reducer.fit_transform(embeddings)
-
-    # Plot
-    fig, ax = plt.subplots(figsize=(12, 10))
-
-    if outcomes:
-        colors = {
-            "petitioner": "#4CAF50",
-            "respondent": "#F44336",
-            None: "#9E9E9E",
-        }
-        for outcome in ["petitioner", "respondent", None]:
-            mask = [o == outcome for o in outcomes]
-            if any(mask):
-                coords_subset = coords[mask]
-                label = outcome if outcome else "Unknown"
-                ax.scatter(
-                    coords_subset[:, 0],
-                    coords_subset[:, 1],
-                    c=colors[outcome],
-                    label=label,
-                    alpha=0.6,
-                    s=20,
-                )
-        ax.legend()
-    else:
-        ax.scatter(coords[:, 0], coords[:, 1], alpha=0.6, s=20)
-
-    ax.set_title(title)
-    ax.set_xlabel("Dimension 1")
-    ax.set_ylabel("Dimension 2")
-
-    plt.tight_layout()
-
-    if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_path, dpi=150, bbox_inches="tight")
-        print(f"Saved figure to {output_path}")
-    else:
-        plt.show()
-
-    plt.close()
-
-
-def visualize_subgraph(
-    center_case_id: str,
-    depth: int = 2,
-    driver=None,
-    output_path: Optional[Path] = None,
-) -> "plt.Figure":
-    """
-    Visualize a subgraph centered on a specific case.
-
-    This is the main visualization function matching the specification.
-
-    Args:
-        center_case_id: ID of the center case
-        depth: Number of hops to include
-        driver: Neo4j driver instance
-        output_path: Optional path to save the figure
-
-    Returns:
-        Matplotlib Figure object
-    """
-    import matplotlib.pyplot as plt
-
-    G = load_subgraph_from_neo4j(center_case_id, max_hops=depth, driver=driver)
-    return visualize_citation_graph_matplotlib(
-        G,
-        output_path=output_path,
-        title=f"Citation Network: {center_case_id} (depth={depth})",
-    )
-
-
-def export_to_gephi(driver=None, output_path: Optional[Path] = None) -> Path:
-    """
-    Export the citation graph to GEXF format for Gephi visualization.
-
-    Args:
-        driver: Neo4j driver instance
-        output_path: Path to save the GEXF file
-
-    Returns:
-        Path to the exported file
-    """
-    close_driver = False
-    if driver is None:
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        close_driver = True
-
-    output_path = output_path or (RESULTS_DIR / "citation_graph.gexf")
-    output_path = Path(output_path)
-
-    try:
-        with driver.session() as session:
-            # Get all nodes
-            nodes_result = session.run("""
-                MATCH (c:Case)
-                RETURN c.id AS id, c.name AS name, c.court AS court,
-                       c.year AS year, c.outcome AS outcome
-            """)
-            nodes = list(nodes_result)
-
-            # Get all edges
-            edges_result = session.run("""
-                MATCH (s:Case)-[r:CITES]->(t:Case)
-                RETURN s.id AS source, t.id AS target,
-                       coalesce(r.weight, 1.0) AS weight
-            """)
-            edges = list(edges_result)
-
-        # Build NetworkX graph
-        G = nx.DiGraph()
-
-        for node in nodes:
-            G.add_node(
-                node["id"],
-                name=node["name"] or "",
-                court=node["court"] or "",
-                year=node["year"] or 0,
-                outcome=node["outcome"] or "",
-            )
-
-        for edge in edges:
-            G.add_edge(
-                edge["source"],
-                edge["target"],
-                weight=edge["weight"],
-            )
-
-        # Export to GEXF
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        nx.write_gexf(G, str(output_path))
-
-        print(f"Exported {len(nodes)} nodes and {len(edges)} edges to {output_path}")
-        return output_path
-
-    finally:
-        if close_driver:
-            driver.close()
-
-
-def get_graph_statistics(driver=None) -> dict:
-    """
-    Compute graph statistics from Neo4j.
-
-    Returns:
-        Dict with graph statistics
-    """
-    close_driver = False
-    if driver is None:
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        close_driver = True
-
-    try:
-        with driver.session() as session:
-            # Basic counts
-            counts = session.run("""
-                MATCH (c:Case)
-                OPTIONAL MATCH (c)-[r:CITES]->()
-                RETURN count(DISTINCT c) AS num_nodes,
-                       count(r) AS num_edges
-            """).single()
-
-            # Degree statistics
-            degree_stats = session.run("""
-                MATCH (c:Case)
-                OPTIONAL MATCH (c)-[out:CITES]->()
-                OPTIONAL MATCH ()-[in:CITES]->(c)
-                WITH c, count(DISTINCT out) AS out_degree, count(DISTINCT in) AS in_degree
-                RETURN avg(out_degree) AS avg_out_degree,
-                       max(out_degree) AS max_out_degree,
-                       avg(in_degree) AS avg_in_degree,
-                       max(in_degree) AS max_in_degree
-            """).single()
-
-            # Outcome distribution
-            outcome_dist = session.run("""
-                MATCH (c:Case)
-                RETURN c.outcome AS outcome, count(*) AS count
-            """)
-            outcomes = {r["outcome"]: r["count"] for r in outcome_dist}
-
-            # Year range
-            year_range = session.run("""
-                MATCH (c:Case)
-                WHERE c.year IS NOT NULL
-                RETURN min(c.year) AS min_year, max(c.year) AS max_year
-            """).single()
-
-            return {
-                "num_nodes": counts["num_nodes"],
-                "num_edges": counts["num_edges"],
-                "avg_out_degree": round(degree_stats["avg_out_degree"] or 0, 2),
-                "max_out_degree": degree_stats["max_out_degree"] or 0,
-                "avg_in_degree": round(degree_stats["avg_in_degree"] or 0, 2),
-                "max_in_degree": degree_stats["max_in_degree"] or 0,
-                "outcome_distribution": outcomes,
-                "year_range": (year_range["min_year"], year_range["max_year"]),
-            }
-
-    finally:
-        if close_driver:
-            driver.close()
-
-
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 2:
-        print("Usage: python visualize.py [stats|graph <case_id>|embeddings]")
-        sys.exit(1)
-
-    command = sys.argv[1].lower()
-
-    if command == "stats":
-        print("Computing graph statistics...")
-        stats = get_graph_statistics()
-        print(f"\nGraph Statistics:")
-        print(f"  Nodes: {stats['num_nodes']}")
-        print(f"  Edges: {stats['num_edges']}")
-        print(f"  Avg out-degree: {stats['avg_out_degree']}")
-        print(f"  Max out-degree: {stats['max_out_degree']}")
-        print(f"  Avg in-degree: {stats['avg_in_degree']}")
-        print(f"  Max in-degree: {stats['max_in_degree']}")
-        print(f"  Year range: {stats['year_range'][0]} - {stats['year_range'][1]}")
-        print(f"  Outcome distribution: {stats['outcome_distribution']}")
-
-    elif command == "graph":
-        if len(sys.argv) < 3:
-            print("Usage: python visualize.py graph <case_id>")
-            sys.exit(1)
-
-        case_id = sys.argv[2]
-        print(f"Loading subgraph for case {case_id}...")
-        G = load_subgraph_from_neo4j(case_id)
-        print(f"Loaded {G.number_of_nodes()} nodes and {G.number_of_edges()} edges")
-
-        output_path = RESULTS_DIR / f"citation_graph_{case_id}.html"
-        visualize_citation_graph_plotly(G, output_path=output_path)
-
-    elif command == "embeddings":
-        from src.graph.graphsage import load_embeddings
-
-        print("Loading embeddings...")
-        node_ids, embeddings = load_embeddings()
-
-        # Get outcomes from Neo4j
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        with driver.session() as session:
-            result = session.run("""
-                MATCH (c:Case)
-                WHERE c.id IN $node_ids
-                RETURN c.id AS id, c.outcome AS outcome
-            """, node_ids=node_ids)
-            outcome_map = {r["id"]: r["outcome"] for r in result}
-        driver.close()
-
-        outcomes = [outcome_map.get(nid) for nid in node_ids]
-
-        output_path = RESULTS_DIR / "embedding_space.png"
-        visualize_embedding_space(
-            node_ids,
-            embeddings.numpy(),
-            outcomes=outcomes,
-            output_path=output_path,
+        labels = {n: G.nodes[n].get("name", n)[:15] for n in G.nodes()}
+        nx.draw_networkx_labels(
+            G, pos,
+            labels=labels,
+            font_size=6,
+            ax=ax,
         )
+    
+    ax.set_title(title, fontsize=16, fontweight="bold")
+    ax.axis("off")
+    
+    # Legend
+    if color_by_outcome:
+        from matplotlib.lines import Line2D
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='#28a745', markersize=10, label='Petitioner wins'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='#dc3545', markersize=10, label='Respondent wins'),
+        ]
+        ax.legend(handles=legend_elements, loc='upper left')
+    
+    plt.tight_layout()
+    
+    if output_path:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        print(f"Saved figure to {output_path}")
+    
+    return fig, ax
 
-    else:
-        print(f"Unknown command: {command}")
-        sys.exit(1)
+
+def plot_degree_distribution(
+    G,
+    output_path: Optional[Path] = None,
+    figsize: Tuple[int, int] = (12, 5),
+):
+    """Plot in-degree and out-degree distributions."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+    
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+    
+    # In-degree
+    in_degrees = [d for n, d in G.in_degree()]
+    axes[0].hist(in_degrees, bins=30, color="#1f77b4", alpha=0.7, edgecolor="black")
+    axes[0].set_xlabel("In-degree (Citations Received)")
+    axes[0].set_ylabel("Frequency")
+    axes[0].set_title("In-degree Distribution")
+    axes[0].axvline(np.mean(in_degrees), color="red", linestyle="--", label=f"Mean: {np.mean(in_degrees):.1f}")
+    axes[0].legend()
+    
+    # Out-degree
+    out_degrees = [d for n, d in G.out_degree()]
+    axes[1].hist(out_degrees, bins=30, color="#ff7f0e", alpha=0.7, edgecolor="black")
+    axes[1].set_xlabel("Out-degree (Citations Made)")
+    axes[1].set_ylabel("Frequency")
+    axes[1].set_title("Out-degree Distribution")
+    axes[1].axvline(np.mean(out_degrees), color="red", linestyle="--", label=f"Mean: {np.mean(out_degrees):.1f}")
+    axes[1].legend()
+    
+    plt.tight_layout()
+    
+    if output_path:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        print(f"Saved figure to {output_path}")
+    
+    return fig, axes
+
+
+def create_interactive_graph(
+    G,
+    output_path: Optional[Path] = None,
+) -> str:
+    """Create interactive HTML visualization using pyvis."""
+    try:
+        from pyvis.network import Network
+    except ImportError:
+        return "<p>pyvis not installed. Run: pip install pyvis</p>"
+    
+    # Create pyvis network
+    net = Network(
+        height="800px",
+        width="100%",
+        bgcolor="#ffffff",
+        font_color="black",
+        directed=True,
+    )
+    
+    # Physics settings
+    net.barnes_hut(gravity=-5000, central_gravity=0.3, spring_length=200)
+    
+    # Add nodes
+    color_map = {"petitioner": "#28a745", "respondent": "#dc3545", "unknown": "#6c757d"}
+    
+    for node in G.nodes():
+        outcome = G.nodes[node].get("outcome", "unknown")
+        name = G.nodes[node].get("name", node)[:30]
+        in_deg = G.in_degree(node)
+        
+        net.add_node(
+            node,
+            label=name,
+            title=f"{name}\nOutcome: {outcome}\nCitations: {in_deg}",
+            color=color_map.get(outcome, "#6c757d"),
+            size=10 + in_deg * 2,
+        )
+    
+    # Add edges
+    for source, target in G.edges():
+        net.add_edge(source, target, color="#cccccc")
+    
+    # Generate HTML
+    if output_path:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        net.save_graph(str(output_path))
+        print(f"Saved interactive graph to {output_path}")
+        return str(output_path)
+    
+    return net.generate_html()
+
+
+def visualize_case_neighborhood(
+    G,
+    case_id: str,
+    depth: int = 2,
+    output_path: Optional[Path] = None,
+):
+    """Visualize the citation neighborhood of a specific case."""
+    import networkx as nx
+    import matplotlib.pyplot as plt
+    
+    # Get ego graph (neighborhood)
+    ego = nx.ego_graph(G, case_id, radius=depth, undirected=True)
+    
+    fig, ax = plt.subplots(figsize=(12, 10))
+    
+    pos = nx.spring_layout(ego, k=1.5, seed=42)
+    
+    # Node colors - highlight the focal case
+    node_colors = []
+    for n in ego.nodes():
+        if n == case_id:
+            node_colors.append("#ffc107")  # Yellow for focal
+        elif ego.nodes[n].get("outcome") == "petitioner":
+            node_colors.append("#28a745")
+        elif ego.nodes[n].get("outcome") == "respondent":
+            node_colors.append("#dc3545")
+        else:
+            node_colors.append("#6c757d")
+    
+    nx.draw(
+        ego, pos,
+        node_color=node_colors,
+        node_size=500,
+        with_labels=True,
+        font_size=8,
+        edge_color="#cccccc",
+        alpha=0.8,
+        ax=ax,
+    )
+    
+    case_name = G.nodes[case_id].get("name", case_id)[:40]
+    ax.set_title(f"Citation Neighborhood: {case_name}", fontsize=14, fontweight="bold")
+    
+    if output_path:
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        print(f"Saved figure to {output_path}")
+    
+    return fig, ax
+
+
+def generate_all_visualizations(
+    output_dir: Optional[Path] = None,
+    edges_path: Optional[Path] = None,
+    cases_path: Optional[Path] = None,
+) -> Dict[str, Path]:
+    """Generate all visualization files."""
+    output_dir = Path(output_dir or RESULTS_DIR / "figures")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print("Loading data...")
+    edges = load_citation_edges(edges_path)
+    cases = load_cases(cases_path)
+    
+    if not edges:
+        print("No edges found. Run citation extraction first.")
+        return {}
+    
+    print(f"Loaded {len(edges)} edges and {len(cases)} cases")
+    
+    print("Creating NetworkX graph...")
+    G = create_networkx_graph(edges, cases)
+    
+    outputs = {}
+    
+    # Graph stats
+    print("Computing graph statistics...")
+    stats = compute_graph_stats(G)
+    stats_path = output_dir / "graph_stats.json"
+    with open(stats_path, "w") as f:
+        json.dump(stats, f, indent=2)
+    outputs["stats"] = stats_path
+    print(f"Stats: {stats['num_nodes']} nodes, {stats['num_edges']} edges")
+    
+    # Network plot
+    print("Plotting citation network...")
+    plot_path = output_dir / "citation_network.png"
+    plot_citation_network(G, output_path=plot_path)
+    outputs["network"] = plot_path
+    
+    # Degree distribution
+    print("Plotting degree distribution...")
+    dist_path = output_dir / "degree_distribution.png"
+    plot_degree_distribution(G, output_path=dist_path)
+    outputs["degree_dist"] = dist_path
+    
+    # Interactive graph
+    print("Creating interactive graph...")
+    try:
+        html_path = output_dir / "interactive_graph.html"
+        create_interactive_graph(G, output_path=html_path)
+        outputs["interactive"] = html_path
+    except Exception as e:
+        print(f"Interactive graph failed: {e}")
+    
+    print(f"\nAll visualizations saved to {output_dir}")
+    return outputs
+
+
+# CLI entrypoint
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Generate citation graph visualizations")
+    parser.add_argument("--output-dir", type=str, help="Output directory")
+    parser.add_argument("--edges", type=str, help="Path to edges.csv")
+    parser.add_argument("--cases", type=str, help="Path to cases file")
+    
+    args = parser.parse_args()
+    
+    generate_all_visualizations(
+        output_dir=Path(args.output_dir) if args.output_dir else None,
+        edges_path=Path(args.edges) if args.edges else None,
+        cases_path=Path(args.cases) if args.cases else None,
+    )

@@ -1,6 +1,6 @@
-"""Link extracted citations to CAP case IDs.
+"""Link extracted citations to case IDs.
 
-Uses the CAP API to search for cases by citation and caches successful
+Uses the CourtListener API to search for cases by citation and caches successful
 lookups for performance.
 """
 
@@ -14,7 +14,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from src.config import CITATIONS_DIR
-from src.data.cap_client import CAPClient
+from src.data.courtlistener_client import CourtListenerClient
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +51,13 @@ class LinkingStats(BaseModel):
 
 
 class CitationLinker:
-    """Links extracted citations to CAP case IDs.
+    """Links extracted citations to case IDs.
 
-    Uses the CAP API to search for cases by citation. Caches successful
+    Uses the CourtListener API to search for cases by citation. Caches successful
     lookups to avoid redundant API calls.
 
     Usage:
-        linker = CitationLinker(cap_client)
+        linker = CitationLinker(client)
         case_id = await linker.link_citation("347 U.S. 483")
 
         # Batch linking
@@ -66,7 +66,7 @@ class CitationLinker:
 
     def __init__(
         self,
-        cap_client: Optional[CAPClient] = None,
+        client: Optional[CourtListenerClient] = None,
         cache_path: Optional[Path] = None,
         max_concurrent: int = 5,
         cache_ambiguous: bool = False,
@@ -74,12 +74,13 @@ class CitationLinker:
         """Initialize the citation linker.
 
         Args:
-            cap_client: CAPClient instance for API calls
+            client: CourtListenerClient instance for API calls
             cache_path: Path to cache file (defaults to CITATIONS_DIR/link_cache.json)
             max_concurrent: Max concurrent API requests
             cache_ambiguous: Whether to cache ambiguous results
         """
-        self.cap_client = cap_client or CAPClient()
+        self.client = client
+        self._owns_client = client is None  # Track if we created the client
         self.cache_path = cache_path or CITATIONS_DIR / "link_cache.json"
         self.max_concurrent = max_concurrent
         self.cache_ambiguous = cache_ambiguous
@@ -150,6 +151,13 @@ class CitationLinker:
         result = await self.link_citation_full(citation)
         return result.case_id
 
+    async def _ensure_client(self) -> CourtListenerClient:
+        """Ensure we have a valid client, creating one if needed."""
+        if self.client is None:
+            self.client = CourtListenerClient()
+            self._owns_client = True
+        return self.client
+
     async def link_citation_full(self, citation: str) -> LinkResult:
         """Link a citation and return full result with metadata.
 
@@ -170,39 +178,24 @@ class CitationLinker:
             async with self._semaphore:
                 self._stats.api_calls += 1
 
-                # Search for the case by citation
-                matches = []
-                async for case in self.cap_client.search_cases(
-                    cite=citation,
-                    full_case=False,  # We only need metadata
-                    max_results=5,  # Check for ambiguity
-                ):
-                    matches.append(case)
+                # Get or create client
+                client = await self._ensure_client()
 
-                result.match_count = len(matches)
+                # Search for the case by citation using CourtListener
+                cl_case = await client.search_by_citation(citation, save_to_disk=False)
 
-                if len(matches) == 0:
+                if cl_case:
+                    # Found a match
+                    result.case_id = f"cl_{cl_case.cluster_id}"
+                    result.case_name = cl_case.case_name
+                    result.confidence = 1.0
+                    result.match_count = 1
+                    self._stats.successful_links += 1
+                else:
                     # No matches found
                     result.error = "No matches found"
+                    result.match_count = 0
                     self._stats.failed_links += 1
-
-                elif len(matches) == 1:
-                    # Exact match
-                    result.case_id = str(matches[0].id)
-                    result.case_name = matches[0].name
-                    result.confidence = 1.0
-                    self._stats.successful_links += 1
-
-                else:
-                    # Multiple matches - try to find best match
-                    result.ambiguous = True
-                    self._stats.ambiguous_links += 1
-
-                    # Use the first result as the most likely match
-                    # (CAP returns results by relevance)
-                    result.case_id = str(matches[0].id)
-                    result.case_name = matches[0].name
-                    result.confidence = 0.8  # Reduced confidence for ambiguous
 
         except Exception as e:
             logger.warning(f"Error linking citation '{citation}': {e}")
@@ -381,28 +374,30 @@ async def link_citations(citations: List[str]) -> Dict[str, Optional[str]]:
     Returns:
         Dictionary mapping citation to case ID
     """
-    linker = CitationLinker()
-    return await linker.link_batch(citations)
+    async with CourtListenerClient() as client:
+        linker = CitationLinker(client=client)
+        return await linker.link_batch(citations)
 
 
 if __name__ == "__main__":
     # Test the linker
     async def test():
-        linker = CitationLinker()
+        async with CourtListenerClient() as client:
+            linker = CitationLinker(client=client)
 
-        test_citations = [
-            "347 U.S. 483",  # Brown v. Board of Education
-            "163 U.S. 537",  # Plessy v. Ferguson
-            "410 U.S. 113",  # Roe v. Wade
-        ]
+            test_citations = [
+                "347 U.S. 483",  # Brown v. Board of Education
+                "163 U.S. 537",  # Plessy v. Ferguson
+                "410 U.S. 113",  # Roe v. Wade
+            ]
 
-        print("Linking test citations...")
-        results = await linker.link_batch(test_citations)
+            print("Linking test citations...")
+            results = await linker.link_batch(test_citations)
 
-        print("\nResults:")
-        for citation, case_id in results.items():
-            print(f"  {citation} -> {case_id}")
+            print("\nResults:")
+            for citation, case_id in results.items():
+                print(f"  {citation} -> {case_id}")
 
-        print(f"\nStats: {linker.get_stats()}")
+            print(f"\nStats: {linker.get_stats()}")
 
     asyncio.run(test())
