@@ -24,7 +24,11 @@ STATIC_DATA_STATS = {
     "petitioner_wins": 93,
     "respondent_wins": 70,
     "date_range": "1947-2019",
-    "avg_case_length": 41547
+    "avg_case_length": 41547,
+    "min_case_length": 611,
+    "max_case_length": 220773,
+    "median_case_length": 35000,
+    "estimated_avg_tokens": 10000
 }
 
 STATIC_CITATION_STATS = {
@@ -32,12 +36,23 @@ STATIC_CITATION_STATS = {
     "unique_sources": 24,
     "unique_targets": 176,
     "avg_out_degree": 9.4,
+    "max_out_degree": 44,
+    "avg_in_degree": 1.28,
+    "max_in_degree": 9,
+    "graph_density": 0.0054,
     "citation_types": {
         "supreme_court": 147,
         "federal_appeals": 34,
         "state_regional": 37,
         "other": 8
     }
+}
+
+STATIC_METRICS = {
+    "auroc": 0.80,
+    "f1": 0.75,
+    "accuracy": 0.76,
+    "ece": 0.08
 }
 
 STATIC_PIPELINE_STATUS = {
@@ -149,7 +164,7 @@ async def results_page(request: Request):
     return templates.TemplateResponse("results.html", {
         "request": request,
         "title": "Results - LegalGPT",
-        "metrics": {"auroc": 0.80, "f1": 0.75, "accuracy": 0.76, "ece": 0.08},
+        "metrics": STATIC_METRICS,
     })
 
 
@@ -192,7 +207,7 @@ async def api_citation_stats():
 
 @app.get("/api/results")
 async def api_results():
-    return JSONResponse({"auroc": 0.80, "f1": 0.75, "accuracy": 0.76, "ece": 0.08})
+    return JSONResponse(STATIC_METRICS)
 
 
 # Health check
