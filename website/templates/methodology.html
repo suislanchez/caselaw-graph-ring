@@ -88,58 +88,101 @@
         LegalGPT implements a three-stage pipeline combining graph neural networks for precedent retrieval with large language models for outcome prediction. The architecture is inspired by retrieval-augmented generation (RAG) frameworks (Lewis et al., 2020) but incorporates citation graph structure as a first-class signal.
     </p>
 
-    <div class="bg-gray-100 p-6 rounded-lg mb-6 overflow-x-auto">
-        <pre class="text-sm font-mono">
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              LEGALGPT SYSTEM ARCHITECTURE                            │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                      │
-│  ┌─────────────────┐                                                                │
-│  │   INPUT CASE    │                                                                │
-│  │  (text, meta)   │                                                                │
-│  └────────┬────────┘                                                                │
-│           │                                                                          │
-│           ▼                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                         STAGE 1: GRAPH RETRIEVAL                             │   │
-│  │  ┌───────────────┐   ┌───────────────┐   ┌───────────────┐                  │   │
-│  │  │ Citation Graph│──▶│  GraphSAGE    │──▶│  Hybrid       │                  │   │
-│  │  │ (Neo4j)       │   │  Encoder      │   │  Retriever    │                  │   │
-│  │  │ 10K nodes     │   │  (2-layer)    │   │  (k=5)        │                  │   │
-│  │  │ 150K edges    │   │  128-dim out  │   │  α=0.6        │                  │   │
-│  │  └───────────────┘   └───────────────┘   └───────────────┘                  │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│           │                                                                          │
-│           ▼  [Top-k precedents with relevance scores]                               │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                         STAGE 2: CONTEXT ASSEMBLY                            │   │
-│  │  ┌─────────────────────────────────────────────────────────────────────┐    │   │
-│  │  │  [INST] System prompt + Query case + Retrieved precedents [/INST]   │    │   │
-│  │  │  • Query case: ~5,000 tokens (truncated)                            │    │   │
-│  │  │  • Each precedent: ~3,000 tokens × 5 = 15,000 tokens               │    │   │
-│  │  │  • Total context: ~20,000 tokens (within 32K limit)                 │    │   │
-│  │  └─────────────────────────────────────────────────────────────────────┘    │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│           │                                                                          │
-│           ▼                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐   │
-│  │                         STAGE 3: LLM PREDICTION                              │   │
-│  │  ┌───────────────┐   ┌───────────────┐   ┌───────────────┐                  │   │
-│  │  │ Mistral-7B    │──▶│   QLoRA       │──▶│ Classification│                  │   │
-│  │  │ Instruct v0.3 │   │   Adapters    │   │    Head       │                  │   │
-│  │  │ (frozen)      │   │   r=16, α=32  │   │  4096→2       │                  │   │
-│  │  └───────────────┘   └───────────────┘   └───────────────┘                  │   │
-│  └─────────────────────────────────────────────────────────────────────────────┘   │
-│           │                                                                          │
-│           ▼                                                                          │
-│  ┌─────────────────┐                                                                │
-│  │     OUTPUT      │                                                                │
-│  │ P(petitioner)   │                                                                │
-│  │ P(respondent)   │                                                                │
-│  └─────────────────┘                                                                │
-│                                                                                      │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-        </pre>
+    <!-- System Architecture Diagram -->
+    <div class="bg-gradient-to-br from-gray-50 to-blue-50 p-8 rounded-xl mb-6 border border-gray-200 shadow-sm">
+        <h3 class="text-center text-xl font-bold text-gray-800 mb-8">LegalGPT System Architecture</h3>
+
+        <div class="flex flex-col items-center gap-4">
+            <!-- Input -->
+            <div class="bg-white border-2 border-blue-500 rounded-lg px-6 py-4 shadow-md text-center">
+                <div class="font-bold text-blue-700">INPUT CASE</div>
+                <div class="text-sm text-gray-500">text + metadata</div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-blue-400 text-2xl">↓</div>
+
+            <!-- Stage 1: Graph Retrieval -->
+            <div class="w-full max-w-4xl bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-xl p-6 shadow-md">
+                <div class="text-center font-bold text-emerald-700 mb-4 text-lg">STAGE 1: Graph Retrieval</div>
+                <div class="flex flex-wrap justify-center gap-4 items-center">
+                    <div class="bg-white border border-emerald-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-emerald-700">Citation Graph</div>
+                        <div class="text-xs text-gray-500 mt-1">Neo4j</div>
+                        <div class="text-xs text-gray-400">10K nodes, 150K edges</div>
+                    </div>
+                    <div class="text-emerald-400 text-xl font-bold">→</div>
+                    <div class="bg-white border border-emerald-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-emerald-700">GraphSAGE</div>
+                        <div class="text-xs text-gray-500 mt-1">2-layer encoder</div>
+                        <div class="text-xs text-gray-400">128-dim output</div>
+                    </div>
+                    <div class="text-emerald-400 text-xl font-bold">→</div>
+                    <div class="bg-white border border-emerald-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-emerald-700">Hybrid Retriever</div>
+                        <div class="text-xs text-gray-500 mt-1">k=5 precedents</div>
+                        <div class="text-xs text-gray-400">α=0.6 (embedding)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrow with label -->
+            <div class="flex flex-col items-center">
+                <div class="text-blue-400 text-2xl">↓</div>
+                <div class="text-xs text-gray-500 italic">Top-k precedents with relevance scores</div>
+            </div>
+
+            <!-- Stage 2: Context Assembly -->
+            <div class="w-full max-w-4xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-xl p-6 shadow-md">
+                <div class="text-center font-bold text-amber-700 mb-4 text-lg">STAGE 2: Context Assembly</div>
+                <div class="bg-white border border-amber-300 rounded-lg p-4 shadow-sm">
+                    <div class="font-mono text-sm text-center text-gray-700 mb-2">[INST] System prompt + Query case + Precedents [/INST]</div>
+                    <div class="flex flex-wrap justify-center gap-6 text-xs text-gray-500">
+                        <span>Query: ~5K tokens</span>
+                        <span>|</span>
+                        <span>Precedents: ~15K tokens (5×3K)</span>
+                        <span>|</span>
+                        <span>Total: ~20K tokens</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-blue-400 text-2xl">↓</div>
+
+            <!-- Stage 3: LLM Prediction -->
+            <div class="w-full max-w-4xl bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-400 rounded-xl p-6 shadow-md">
+                <div class="text-center font-bold text-purple-700 mb-4 text-lg">STAGE 3: LLM Prediction</div>
+                <div class="flex flex-wrap justify-center gap-4 items-center">
+                    <div class="bg-white border border-purple-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-purple-700">Mistral-7B</div>
+                        <div class="text-xs text-gray-500 mt-1">Instruct v0.3</div>
+                        <div class="text-xs text-gray-400">frozen weights</div>
+                    </div>
+                    <div class="text-purple-400 text-xl font-bold">→</div>
+                    <div class="bg-white border border-purple-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-purple-700">QLoRA Adapters</div>
+                        <div class="text-xs text-gray-500 mt-1">r=16, α=32</div>
+                        <div class="text-xs text-gray-400">~7M params (0.1%)</div>
+                    </div>
+                    <div class="text-purple-400 text-xl font-bold">→</div>
+                    <div class="bg-white border border-purple-300 rounded-lg p-4 text-center shadow-sm min-w-[140px]">
+                        <div class="font-semibold text-purple-700">Classification</div>
+                        <div class="text-xs text-gray-500 mt-1">Linear 4096→2</div>
+                        <div class="text-xs text-gray-400">Softmax output</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="text-blue-400 text-2xl">↓</div>
+
+            <!-- Output -->
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg px-8 py-4 shadow-lg text-center">
+                <div class="font-bold text-lg">OUTPUT</div>
+                <div class="text-sm opacity-90">P(petitioner) | P(respondent)</div>
+            </div>
+        </div>
     </div>
 
     <div class="grid md:grid-cols-3 gap-6">
@@ -944,50 +987,82 @@ Parameters:
         Multi-modal representation combining semantic text features with structural graph information through learned fusion layers.
     </p>
 
-    <div class="bg-gray-100 p-6 rounded-lg mb-8">
-        <h3 class="font-semibold mb-4 text-center">Fusion Architecture Diagram</h3>
-        <div class="font-mono text-sm overflow-x-auto">
-            <pre class="text-center">
-┌─────────────────────┐          ┌─────────────────────┐
-│     Case Text       │          │   Citation Graph    │
-│   (full opinion)    │          │   (node + edges)    │
-└──────────┬──────────┘          └──────────┬──────────┘
-           │                                 │
-           ▼                                 ▼
-┌─────────────────────┐          ┌─────────────────────┐
-│   Sentence-BERT     │          │     GraphSAGE       │
-│  all-MiniLM-L6-v2   │          │    2-layer GNN      │
-│     (frozen)        │          │    (trained)        │
-└──────────┬──────────┘          └──────────┬──────────┘
-           │                                 │
-           ▼                                 ▼
-    ┌─────────────┐                  ┌─────────────┐
-    │  e_text     │                  │  e_graph    │
-    │  (384-dim)  │                  │  (128-dim)  │
-    └──────┬──────┘                  └──────┬──────┘
-           │                                 │
-           └─────────────┬───────────────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │    Concatenation    │
-              │  [e_text; e_graph]  │
-              │     (512-dim)       │
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │   Fusion MLP        │
-              │  512 → 256 → 128    │
-              │   ReLU + Dropout    │
-              └──────────┬──────────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │  e_fused (128-dim)  │
-              │   L2 normalized     │
-              └─────────────────────┘
-            </pre>
+    <!-- Fusion Architecture Diagram -->
+    <div class="bg-gradient-to-br from-gray-50 to-indigo-50 p-8 rounded-xl mb-8 border border-gray-200 shadow-sm">
+        <h3 class="font-semibold mb-6 text-center text-lg text-gray-800">Fusion Architecture Diagram</h3>
+
+        <div class="flex flex-col items-center gap-3">
+            <!-- Dual Input Row -->
+            <div class="flex flex-wrap justify-center gap-12 mb-2">
+                <!-- Text Branch -->
+                <div class="flex flex-col items-center gap-3">
+                    <div class="bg-blue-100 border-2 border-blue-400 rounded-lg px-6 py-3 text-center shadow-sm">
+                        <div class="font-semibold text-blue-700">Case Text</div>
+                        <div class="text-xs text-gray-500">(full opinion)</div>
+                    </div>
+                    <div class="text-blue-400 text-xl">↓</div>
+                    <div class="bg-white border-2 border-blue-300 rounded-lg px-5 py-3 text-center shadow-sm">
+                        <div class="font-semibold text-blue-600">Sentence-BERT</div>
+                        <div class="text-xs text-gray-500">all-MiniLM-L6-v2</div>
+                        <div class="text-xs text-gray-400">(frozen)</div>
+                    </div>
+                    <div class="text-blue-400 text-xl">↓</div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-center">
+                        <div class="font-mono text-sm text-blue-700">e_text</div>
+                        <div class="text-xs text-gray-500">(384-dim)</div>
+                    </div>
+                </div>
+
+                <!-- Graph Branch -->
+                <div class="flex flex-col items-center gap-3">
+                    <div class="bg-emerald-100 border-2 border-emerald-400 rounded-lg px-6 py-3 text-center shadow-sm">
+                        <div class="font-semibold text-emerald-700">Citation Graph</div>
+                        <div class="text-xs text-gray-500">(node + edges)</div>
+                    </div>
+                    <div class="text-emerald-400 text-xl">↓</div>
+                    <div class="bg-white border-2 border-emerald-300 rounded-lg px-5 py-3 text-center shadow-sm">
+                        <div class="font-semibold text-emerald-600">GraphSAGE</div>
+                        <div class="text-xs text-gray-500">2-layer GNN</div>
+                        <div class="text-xs text-gray-400">(trained)</div>
+                    </div>
+                    <div class="text-emerald-400 text-xl">↓</div>
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-center">
+                        <div class="font-mono text-sm text-emerald-700">e_graph</div>
+                        <div class="text-xs text-gray-500">(128-dim)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merge indicator -->
+            <div class="flex items-center gap-4 my-2">
+                <div class="w-20 h-0.5 bg-gradient-to-r from-blue-300 to-purple-400"></div>
+                <div class="text-purple-500 text-lg">⊕</div>
+                <div class="w-20 h-0.5 bg-gradient-to-l from-emerald-300 to-purple-400"></div>
+            </div>
+
+            <!-- Concatenation -->
+            <div class="bg-purple-100 border-2 border-purple-400 rounded-lg px-6 py-3 text-center shadow-sm">
+                <div class="font-semibold text-purple-700">Concatenation</div>
+                <div class="font-mono text-xs text-gray-600">[e_text; e_graph]</div>
+                <div class="text-xs text-gray-500">(512-dim)</div>
+            </div>
+
+            <div class="text-purple-400 text-xl">↓</div>
+
+            <!-- Fusion MLP -->
+            <div class="bg-gradient-to-r from-purple-100 to-indigo-100 border-2 border-purple-400 rounded-lg px-6 py-3 text-center shadow-sm">
+                <div class="font-semibold text-purple-700">Fusion MLP</div>
+                <div class="text-sm text-gray-600">512 → 256 → 128</div>
+                <div class="text-xs text-gray-500">ReLU + Dropout</div>
+            </div>
+
+            <div class="text-indigo-400 text-xl">↓</div>
+
+            <!-- Output -->
+            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg px-6 py-3 text-center shadow-md">
+                <div class="font-mono font-semibold">e_fused</div>
+                <div class="text-xs opacity-90">(128-dim, L2 normalized)</div>
+            </div>
         </div>
     </div>
 
