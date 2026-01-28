@@ -281,8 +281,17 @@
         LegalGPT operates as a 3-stage pipeline: graph-based retrieval identifies relevant precedents, context assembly builds the prompt, and the fine-tuned LLM generates predictions with confidence scores.
     </p>
 
-    <div class="architecture-diagram mb-8">
-        <pre>
+    <!-- Interactive Manim-Style Animation -->
+    <div class="mb-8">
+        <h3 class="font-semibold text-lg mb-4 text-center text-gray-700">Interactive Pipeline Visualization</h3>
+        <div id="pipeline-animation" class="w-full max-w-4xl mx-auto rounded-xl overflow-hidden shadow-lg" style="min-height: 500px;"></div>
+        <p class="text-center text-sm text-gray-500 mt-2">Scroll down to trigger animation. Click "Replay" to watch again.</p>
+    </div>
+
+    <details class="mb-8">
+        <summary class="cursor-pointer text-blue-600 hover:text-blue-800 font-medium">View Static Architecture Diagram</summary>
+        <div class="architecture-diagram mt-4">
+            <pre>
                                     LegalGPT Architecture
     ================================================================================
 
@@ -346,8 +355,9 @@
                               │  │  Reasoning: Based on precedents...   │    │
                               │  └─────────────────────────────────────┘    │
                               └─────────────────────────────────────────────┘
-        </pre>
-    </div>
+            </pre>
+        </div>
+    </details>
 </section>
 
 <!-- Performance Highlights -->

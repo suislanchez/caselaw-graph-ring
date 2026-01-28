@@ -298,6 +298,13 @@ Objective: Learn f: (T, M, G) → y
         We employ GraphSAGE (Hamilton et al., 2017) to learn inductive node representations that capture both textual semantics and citation graph structure. Unlike transductive methods (e.g., DeepWalk, Node2Vec), GraphSAGE can embed unseen nodes at inference time.
     </p>
 
+    <!-- Interactive Manim-Style Animation -->
+    <div class="mb-8">
+        <h3 class="font-semibold text-lg mb-4 text-center text-gray-700">Message Passing Visualization</h3>
+        <div id="graphsage-animation" class="w-full max-w-3xl mx-auto rounded-xl overflow-hidden shadow-lg" style="min-height: 400px;"></div>
+        <p class="text-center text-sm text-gray-500 mt-2">Watch how neighbor information aggregates to update the central node embedding.</p>
+    </div>
+
     <div class="grid md:grid-cols-2 gap-8 mb-8">
         <div>
             <h3 class="font-semibold mb-4">Architecture Configuration</h3>
@@ -851,6 +858,13 @@ This ensures:
         Our retrieval system combines dense embedding similarity with sparse citation graph structure, following the hybrid retrieval paradigm (Karpukhin et al., 2020; Ma et al., 2021).
     </p>
 
+    <!-- Interactive Manim-Style Animation -->
+    <div class="mb-8">
+        <h3 class="font-semibold text-lg mb-4 text-center text-gray-700">Score Computation Visualization</h3>
+        <div id="hybrid-retrieval-animation" class="w-full max-w-3xl mx-auto rounded-xl overflow-hidden shadow-lg" style="min-height: 400px;"></div>
+        <p class="text-center text-sm text-gray-500 mt-2">See how three scoring signals combine into a unified retrieval score.</p>
+    </div>
+
     <div class="bg-blue-100 p-6 rounded-lg mb-8">
         <h3 class="font-semibold mb-4 text-center">Hybrid Scoring Function</h3>
         <div class="text-center font-mono text-lg mb-4">
@@ -992,6 +1006,13 @@ Parameters:
     <p class="text-gray-600 mb-6">
         Multi-modal representation combining semantic text features with structural graph information through learned fusion layers.
     </p>
+
+    <!-- Interactive Manim-Style Animation -->
+    <div class="mb-8">
+        <h3 class="font-semibold text-lg mb-4 text-center text-gray-700">Embedding Space Visualization</h3>
+        <div id="embedding-space-animation" class="w-full max-w-3xl mx-auto rounded-xl overflow-hidden shadow-lg" style="min-height: 450px;"></div>
+        <p class="text-center text-sm text-gray-500 mt-2">2D PCA projection showing case embeddings clustered by outcome. Query case finds nearest neighbors for retrieval.</p>
+    </div>
 
     <!-- Fusion Architecture Diagram -->
     <div class="bg-gradient-to-br from-gray-50 to-indigo-50 p-8 rounded-xl mb-8 border border-gray-200 shadow-sm">
